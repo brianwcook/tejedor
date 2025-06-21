@@ -423,4 +423,41 @@ Package files are served from the `/packages/` path:
 3. **CDN Integration**
    - Static file caching
    - Geographic distribution
-   - Edge computing 
+   - Edge computing
+
+### 7. HTML/Version List Caching
+- The proxy caches the full HTML content of `/simple/{package}/` responses for both public and private indexes.
+- Cache structure:
+  ```go
+  type PackagePageInfo struct {
+      HTML       []byte
+      LastUpdate time.Time
+  }
+  ```
+- Cache key: `{package_name}` (same as existence cache)
+- Both existence and HTML content are cached independently.
+- Cache stats are available via the health endpoint.
+
+### 8. Health Endpoint
+- **URL**: `/health`
+- **Method**: `GET`
+- **Response**: JSON with status and cache statistics
+- **Example Output**:
+  ```json
+  {
+    "status": "healthy",
+    "cache": {
+      "enabled": true,
+      "public_packages": 123,
+      "private_packages": 45,
+      "public_pages": 67,
+      "private_pages": 12
+    }
+  }
+  ```
+
+## License
+
+This project is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0).
+
+Copyright (C) 2024 Brian Cook <bcook@redhat.com> 

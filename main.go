@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 
 	"python-index-proxy/config"
 	"python-index-proxy/proxy"
@@ -38,6 +37,7 @@ func main() {
 	router.HandleFunc("/simple/", proxyInstance.HandleIndex).Methods("GET")
 	router.HandleFunc("/simple/{package}/", proxyInstance.HandlePackage).Methods("GET")
 	router.HandleFunc("/packages/{file:.*}", proxyInstance.HandleFile).Methods("GET")
+	router.HandleFunc("/health", proxyInstance.HandleHealth).Methods("GET")
 
 	// Add middleware for logging
 	router.Use(loggingMiddleware)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 )
 
@@ -31,8 +32,9 @@ func TestPackageExists(t *testing.T) {
 	client := NewClient()
 	ctx := context.Background()
 
+	baseURL := makeBaseURL(server.URL)
 	// Test package exists
-	exists, err := client.PackageExists(ctx, server.URL, "test-package")
+	exists, err := client.PackageExists(ctx, baseURL, "test-package")
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
@@ -51,8 +53,9 @@ func TestPackageNotExists(t *testing.T) {
 	client := NewClient()
 	ctx := context.Background()
 
+	baseURL := makeBaseURL(server.URL)
 	// Test package doesn't exist
-	exists, err := client.PackageExists(ctx, server.URL, "non-existent-package")
+	exists, err := client.PackageExists(ctx, baseURL, "non-existent-package")
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
@@ -78,8 +81,9 @@ func TestGetPackagePage(t *testing.T) {
 	client := NewClient()
 	ctx := context.Background()
 
+	baseURL := makeBaseURL(server.URL)
 	// Test getting package page
-	content, err := client.GetPackagePage(ctx, server.URL, "test-package")
+	content, err := client.GetPackagePage(ctx, baseURL, "test-package")
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
@@ -99,8 +103,9 @@ func TestGetPackagePageNotFound(t *testing.T) {
 	client := NewClient()
 	ctx := context.Background()
 
+	baseURL := makeBaseURL(server.URL)
 	// Test getting non-existent package page
-	_, err := client.GetPackagePage(ctx, server.URL, "non-existent-package")
+	_, err := client.GetPackagePage(ctx, baseURL, "non-existent-package")
 	if err == nil {
 		t.Error("Expected error for non-existent package")
 	}
@@ -217,12 +222,19 @@ func TestPackageNameNormalization(t *testing.T) {
 	client := NewClient()
 	ctx := context.Background()
 
+	baseURL := makeBaseURL(server.URL)
 	// Test package name normalization (underscores to hyphens)
-	exists, err := client.PackageExists(ctx, server.URL, "test_package")
+	exists, err := client.PackageExists(ctx, baseURL, "test_package")
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
 	if !exists {
 		t.Error("Expected package to exist")
 	}
+}
+
+func makeBaseURL(serverURL string) string {
+	u, _ := url.Parse(serverURL)
+	u.Path = "/"
+	return u.String()
 } 

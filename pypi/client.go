@@ -19,10 +19,21 @@ const (
 	ResponseHeaderSourcePrivate = "private"
 )
 
+// PyPIClient defines the interface for PyPI client operations
+type PyPIClient interface {
+	PackageExists(ctx context.Context, baseURL, packageName string) (bool, error)
+	GetPackagePage(ctx context.Context, baseURL, packageName string) ([]byte, error)
+	GetPackageFile(ctx context.Context, fileURL string) ([]byte, error)
+	ProxyFile(ctx context.Context, fileURL string, w http.ResponseWriter) error
+}
+
 // Client represents a PyPI client
 type Client struct {
 	httpClient *http.Client
 }
+
+// Ensure Client implements PyPIClient interface
+var _ PyPIClient = (*Client)(nil)
 
 // NewClient creates a new PyPI client
 func NewClient() *Client {
@@ -33,13 +44,34 @@ func NewClient() *Client {
 	}
 }
 
+// joinURL robustly joins a base URL and a path
+func joinURL(base, path string) (string, error) {
+	baseURL, err := url.Parse(base)
+	if err != nil {
+		return "", err
+	}
+	ref, err := url.Parse(path)
+	if err != nil {
+		return "", err
+	}
+	return baseURL.ResolveReference(ref).String(), nil
+}
+
 // PackageExists checks if a package exists in the specified index
 func (c *Client) PackageExists(ctx context.Context, baseURL, packageName string) (bool, error) {
 	// Normalize the package name for URL
 	normalizedName := strings.ToLower(strings.ReplaceAll(packageName, "_", "-"))
 	
-	// Construct the package URL
-	packageURL := fmt.Sprintf("%s%s/", strings.TrimSuffix(baseURL, "/"), normalizedName)
+	// Ensure base URL ends with a trailing slash for proper path joining
+	if !strings.HasSuffix(baseURL, "/") {
+		baseURL = baseURL + "/"
+	}
+	
+	// Construct the package URL robustly
+	packageURL, err := joinURL(baseURL, normalizedName+"/")
+	if err != nil {
+		return false, fmt.Errorf("error joining URL: %w", err)
+	}
 	
 	// Make HEAD request to check if package exists
 	req, err := http.NewRequestWithContext(ctx, "HEAD", packageURL, nil)
@@ -52,9 +84,25 @@ func (c *Client) PackageExists(ctx context.Context, baseURL, packageName string)
 		return false, fmt.Errorf("error making request: %w", err)
 	}
 	defer resp.Body.Close()
-	
-	// Package exists if we get a 200 OK
-	return resp.StatusCode == http.StatusOK, nil
+
+	if resp.StatusCode == http.StatusOK {
+		return true, nil
+	}
+	if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusMethodNotAllowed {
+		// Fallback to GET request if HEAD is not supported or returns 404
+		getReq, err := http.NewRequestWithContext(ctx, "GET", packageURL, nil)
+		if err != nil {
+			return false, fmt.Errorf("error creating GET request: %w", err)
+		}
+		getResp, err := c.httpClient.Do(getReq)
+		if err != nil {
+			return false, fmt.Errorf("error making GET request: %w", err)
+		}
+		defer getResp.Body.Close()
+		return getResp.StatusCode == http.StatusOK, nil
+	}
+	// Package does not exist
+	return false, nil
 }
 
 // GetPackagePage retrieves the package page from the specified index
@@ -62,8 +110,16 @@ func (c *Client) GetPackagePage(ctx context.Context, baseURL, packageName string
 	// Normalize the package name for URL
 	normalizedName := strings.ToLower(strings.ReplaceAll(packageName, "_", "-"))
 	
-	// Construct the package URL
-	packageURL := fmt.Sprintf("%s%s/", strings.TrimSuffix(baseURL, "/"), normalizedName)
+	// Ensure base URL ends with a trailing slash for proper path joining
+	if !strings.HasSuffix(baseURL, "/") {
+		baseURL = baseURL + "/"
+	}
+	
+	// Construct the package URL robustly
+	packageURL, err := joinURL(baseURL, normalizedName+"/")
+	if err != nil {
+		return nil, fmt.Errorf("error joining URL: %w", err)
+	}
 	
 	// Make GET request to retrieve package page
 	req, err := http.NewRequestWithContext(ctx, "GET", packageURL, nil)

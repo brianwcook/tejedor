@@ -1,6 +1,8 @@
-# PyPI Proxy
+# Tejedor
 
 A Go application that acts as a proxy for PyPI (Python Package Index), implementing the [Simple Repository API](https://packaging.python.org/en/latest/specifications/simple-repository-api/). The proxy intelligently routes requests between a public PyPI index and a private index based on package availability.
+
+> **Why "Tejedor"?** Tejedor means "weaver" in Spanish. This project weaves together packages from multiple indexes, creating a seamless experience by intelligently routing between public and private PyPI sources.
 
 ## Features
 
@@ -9,9 +11,35 @@ A Go application that acts as a proxy for PyPI (Python Package Index), implement
   - Packages only in public PyPI → served from public index
   - Packages in both indexes → served from private index (priority)
   - Packages only in private index → served from private index
+- **Security Protection**: Binary wheels are only served from private repositories, while only source distributions (sdists) are allowed from public PyPI, protecting users from compromised builds
 - **LRU Caching**: Configurable cache with TTL for package existence information
 - **Response Headers**: Includes `X-PyPI-Source` header indicating which index served the content
 - **Simple Repository API**: Full compatibility with PyPI's simple repository API
+
+## New Features (2024)
+
+### HTML/Version List Caching
+- The proxy now caches the full HTML content of `/simple/{package}/` responses (the version list page) for both public and private indexes.
+- This reduces backend calls and improves performance for repeated requests to the same package page.
+- The cache is LRU with TTL, and can be configured or disabled via config.
+- Both package existence and HTML content are cached independently.
+
+### Health Endpoint
+- A new health endpoint is available at `/health`.
+- Returns JSON with cache statistics, including counts for public/private package existence and public/private HTML page caches.
+- Example:
+  ```json
+  {
+    "status": "healthy",
+    "cache": {
+      "enabled": true,
+      "public_packages": 123,
+      "private_packages": 45,
+      "public_pages": 67,
+      "private_pages": 12
+    }
+  }
+  ```
 
 ## Quick Start
 
@@ -261,6 +289,17 @@ go run main.go -config config.yaml
 - Consider using HTTPS for the proxy in production environments
 - The private PyPI URL should be kept secure and not exposed publicly
 
+### Binary Wheel Protection
+
+One of the key security features of this proxy is its protection against compromised binary wheels:
+
+- **Private Repository Binary Wheels**: Binary wheels (`.whl` files) are only served from your private PyPI repository, ensuring you have full control over the build process and can verify the integrity of compiled packages
+- **Public PyPI Source Distributions Only**: From public PyPI, only source distributions (`.tar.gz` files) are allowed, which must be compiled locally during installation
+- **Compromise Prevention**: This approach prevents users from installing potentially compromised pre-compiled binaries from public sources, as all binary wheels come from your trusted private repository
+- **Build Transparency**: By requiring local compilation of public packages, users can inspect the source code and build process, providing transparency and reducing the attack surface
+
+This security model ensures that your users are protected from supply chain attacks while still maintaining access to the vast ecosystem of Python packages available on public PyPI.
+
 ## Contributing
 
 1. Fork the repository
@@ -272,4 +311,6 @@ go run main.go -config config.yaml
 
 ## License
 
-[Add your license information here] 
+This project is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0).
+
+Copyright (C) 2024 Brian Cook <bcook@redhat.com> 

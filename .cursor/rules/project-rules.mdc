@@ -1,0 +1,7 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+Whenever adding new features be sure to update the README.md with user documentation and the specifications.md with technical specs.
+
