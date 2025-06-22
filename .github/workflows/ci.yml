@@ -105,7 +105,9 @@ jobs:
       run: go install github.com/securego/gosec/v2/cmd/gosec@latest
 
     - name: Run Gosec Security Scanner
-      run: ${{ env.GOPATH }}/bin/gosec -fmt=json -out=security-report.json ./...
+      run: |
+        GOPATH=$(go env GOPATH)
+        $GOPATH/bin/gosec -fmt=json -out=security-report.json ./...
       continue-on-error: true
 
     - name: Check for security issues
