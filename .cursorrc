@@ -1,0 +1,12 @@
+{
+  "linter": {
+    "command": "$(go env GOPATH)/bin/golangci-lint",
+    "args": ["run"],
+    "enabled": true
+  },
+  "formatOnSave": true,
+  "go": {
+    "lintTool": "golangci-lint",
+    "lintFlags": ["run"]
+  }
+} 

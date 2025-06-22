@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-// Config holds the application configuration
+// Config holds the application configuration.
 type Config struct {
 	PublicPyPIURL  string `mapstructure:"public_pypi_url"`
 	PrivatePyPIURL string `mapstructure:"private_pypi_url"`
@@ -16,7 +16,7 @@ type Config struct {
 	CacheTTL       int    `mapstructure:"cache_ttl_hours"`
 }
 
-// DefaultConfig returns the default configuration
+// DefaultConfig returns the default configuration.
 func DefaultConfig() *Config {
 	return &Config{
 		PublicPyPIURL:  "https://pypi.org/simple/",
@@ -28,7 +28,7 @@ func DefaultConfig() *Config {
 	}
 }
 
-// LoadConfig loads configuration from file and environment variables
+// LoadConfig loads configuration from file and environment variables.
 func LoadConfig(configPath string) (*Config, error) {
 	config := DefaultConfig()
 
@@ -87,7 +87,7 @@ func LoadConfig(configPath string) (*Config, error) {
 	return config, nil
 }
 
-// CreateDefaultConfigFile creates a default config file
+// CreateDefaultConfigFile creates a default config file.
 func CreateDefaultConfigFile(path string) error {
 	config := DefaultConfig()
 	config.PrivatePyPIURL = "https://console.redhat.com/api/pulp-content/public-calunga/mypypi/simple"

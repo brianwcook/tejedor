@@ -290,7 +290,7 @@ func TestProxyFileWithError(t *testing.T) {
 	}
 
 	// Test with invalid URL to trigger error
-	req, err := http.NewRequest("GET", "/test", nil)
+	req, err := http.NewRequest("GET", "/test", http.NoBody)
 	if err != nil {
 		t.Fatalf("Failed to create request: %v", err)
 	}

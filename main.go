@@ -7,10 +7,10 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gorilla/mux"
+
 	"python-index-proxy/config"
 	"python-index-proxy/proxy"
-
-	"github.com/gorilla/mux"
 )
 
 func main() {
@@ -68,7 +68,7 @@ func main() {
 	}
 }
 
-// loggingMiddleware logs HTTP requests
+// loggingMiddleware logs HTTP requests.
 func loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("%s %s %s", r.RemoteAddr, r.Method, r.URL.Path)

@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"bytes"
 	"testing"
 	"time"
 )
@@ -178,7 +179,7 @@ func TestCacheClear(t *testing.T) {
 	}
 }
 
-// TestPackagePageCaching tests the new HTML page caching functionality
+// TestPackagePageCaching tests the new HTML page caching functionality.
 func TestPackagePageCaching(t *testing.T) {
 	cache, err := NewCache(10, 1, true)
 	if err != nil {
@@ -192,7 +193,7 @@ func TestPackagePageCaching(t *testing.T) {
 	if !found {
 		t.Error("Expected to find package page in cache")
 	}
-	if string(info.HTML) != string(htmlContent) {
+	if !bytes.Equal(info.HTML, htmlContent) {
 		t.Error("Expected HTML content to match")
 	}
 
@@ -202,7 +203,7 @@ func TestPackagePageCaching(t *testing.T) {
 	if !found {
 		t.Error("Expected to find package page in cache")
 	}
-	if string(info.HTML) != string(htmlContent) {
+	if !bytes.Equal(info.HTML, htmlContent) {
 		t.Error("Expected HTML content to match")
 	}
 

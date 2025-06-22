@@ -2,9 +2,10 @@ package config
 
 import (
 	"os"
-	"testing"
-	"github.com/spf13/viper"
 	"strings"
+	"testing"
+
+	"github.com/spf13/viper"
 )
 
 func TestDefaultConfig(t *testing.T) {
@@ -112,7 +113,7 @@ func TestCreateDefaultConfigFile(t *testing.T) {
 	}
 }
 
-// TestLoadConfigWithInvalidEnvVars tests LoadConfig with invalid environment variable bindings
+// TestLoadConfigWithInvalidEnvVars tests LoadConfig with invalid environment variable bindings.
 func TestLoadConfigWithInvalidEnvVars(t *testing.T) {
 	// Test with valid environment variables
 	os.Setenv("PYPI_PROXY_PRIVATE_PYPI_URL", "https://test-private-pypi.com/simple/")
@@ -120,35 +121,35 @@ func TestLoadConfigWithInvalidEnvVars(t *testing.T) {
 	os.Setenv("PYPI_PROXY_CACHE_ENABLED", "false")
 	os.Setenv("PYPI_PROXY_CACHE_SIZE", "5000")
 	os.Setenv("PYPI_PROXY_CACHE_TTL_HOURS", "6")
-	
+
 	// Reset viper to ensure clean state
 	viper.Reset()
-	
+
 	cfg, err := LoadConfig("")
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
-	
+
 	if cfg.PrivatePyPIURL != "https://test-private-pypi.com/simple/" {
 		t.Errorf("Expected private PyPI URL from env var, got %s", cfg.PrivatePyPIURL)
 	}
-	
+
 	if cfg.Port != 9090 {
 		t.Errorf("Expected port from env var, got %d", cfg.Port)
 	}
-	
+
 	if cfg.CacheEnabled {
 		t.Error("Expected cache disabled from env var")
 	}
-	
+
 	if cfg.CacheSize != 5000 {
 		t.Errorf("Expected cache size from env var, got %d", cfg.CacheSize)
 	}
-	
+
 	if cfg.CacheTTL != 6 {
 		t.Errorf("Expected cache TTL from env var, got %d", cfg.CacheTTL)
 	}
-	
+
 	// Clean up
 	os.Unsetenv("PYPI_PROXY_PRIVATE_PYPI_URL")
 	os.Unsetenv("PYPI_PROXY_PORT")
@@ -158,7 +159,7 @@ func TestLoadConfigWithInvalidEnvVars(t *testing.T) {
 	viper.Reset()
 }
 
-// TestLoadConfigWithConfigFile tests LoadConfig with a config file
+// TestLoadConfigWithConfigFile tests LoadConfig with a config file.
 func TestLoadConfigWithConfigFile(t *testing.T) {
 	// Create a temporary config file
 	tempFile, err := os.CreateTemp("", "test-config-*.yaml")
@@ -166,7 +167,7 @@ func TestLoadConfigWithConfigFile(t *testing.T) {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
 	defer os.Remove(tempFile.Name())
-	
+
 	// Write test config to file
 	configContent := `
 public_pypi_url: "https://test-public-pypi.org/simple/"
@@ -180,44 +181,44 @@ cache_ttl_hours: 6
 		t.Fatalf("Failed to write config file: %v", err)
 	}
 	tempFile.Close()
-	
+
 	// Reset viper to ensure clean state
 	viper.Reset()
-	
+
 	// Load config from file
 	cfg, err := LoadConfig(tempFile.Name())
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
-	
+
 	if cfg.PublicPyPIURL != "https://test-public-pypi.org/simple/" {
 		t.Errorf("Expected public PyPI URL from file, got %s", cfg.PublicPyPIURL)
 	}
-	
+
 	if cfg.PrivatePyPIURL != "https://test-private-pypi.com/simple/" {
 		t.Errorf("Expected private PyPI URL from file, got %s", cfg.PrivatePyPIURL)
 	}
-	
+
 	if cfg.Port != 9090 {
 		t.Errorf("Expected port from file, got %d", cfg.Port)
 	}
-	
+
 	if cfg.CacheEnabled {
 		t.Error("Expected cache disabled from file")
 	}
-	
+
 	if cfg.CacheSize != 5000 {
 		t.Errorf("Expected cache size from file, got %d", cfg.CacheSize)
 	}
-	
+
 	if cfg.CacheTTL != 6 {
 		t.Errorf("Expected cache TTL from file, got %d", cfg.CacheTTL)
 	}
-	
+
 	viper.Reset()
 }
 
-// TestLoadConfigWithInvalidConfigFile tests LoadConfig with an invalid config file
+// TestLoadConfigWithInvalidConfigFile tests LoadConfig with an invalid config file.
 func TestLoadConfigWithInvalidConfigFile(t *testing.T) {
 	// Create a temporary config file with invalid YAML
 	tempFile, err := os.CreateTemp("", "test-config-*.yaml")
@@ -225,7 +226,7 @@ func TestLoadConfigWithInvalidConfigFile(t *testing.T) {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
 	defer os.Remove(tempFile.Name())
-	
+
 	// Write invalid YAML to file
 	configContent := `
 public_pypi_url: "https://test-public-pypi.org/simple/"
@@ -239,21 +240,21 @@ cache_ttl_hours: also_not_a_number
 		t.Fatalf("Failed to write config file: %v", err)
 	}
 	tempFile.Close()
-	
+
 	// Reset viper to ensure clean state
 	viper.Reset()
-	
+
 	// Load config from file - should return error for invalid values
 	_, err = LoadConfig(tempFile.Name())
 	if err == nil {
 		t.Error("Expected error for invalid config values, got nil")
 	}
-	
+
 	// Check that the error message contains information about the parsing errors
 	errorMsg := err.Error()
 	if !strings.Contains(errorMsg, "error unmarshaling config") {
 		t.Errorf("Expected error message to contain 'error unmarshaling config', got: %s", errorMsg)
 	}
-	
+
 	viper.Reset()
 }

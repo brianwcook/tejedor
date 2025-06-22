@@ -4,22 +4,22 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hashicorp/golang-lru/v2"
+	lru "github.com/hashicorp/golang-lru/v2"
 )
 
-// PackageInfo represents information about a package in an index
+// PackageInfo represents information about a package in an index.
 type PackageInfo struct {
 	Exists     bool
 	LastUpdate time.Time
 }
 
-// PackagePageInfo represents cached HTML content for a package page
+// PackagePageInfo represents cached HTML content for a package page.
 type PackagePageInfo struct {
 	HTML       []byte
 	LastUpdate time.Time
 }
 
-// Cache represents the LRU cache for package information and HTML content
+// Cache represents the LRU cache for package information and HTML content.
 type Cache struct {
 	publicCache      *lru.Cache[string, PackageInfo]
 	privateCache     *lru.Cache[string, PackageInfo]
@@ -30,8 +30,8 @@ type Cache struct {
 	mu               sync.RWMutex
 }
 
-// NewCache creates a new cache instance
-func NewCache(size int, ttlHours int, enabled bool) (*Cache, error) {
+// NewCache creates a new cache instance.
+func NewCache(size, ttlHours int, enabled bool) (*Cache, error) {
 	if !enabled {
 		return &Cache{enabled: false}, nil
 	}
@@ -66,7 +66,7 @@ func NewCache(size int, ttlHours int, enabled bool) (*Cache, error) {
 	}, nil
 }
 
-// GetPublicPackage checks if a package exists in the public index
+// GetPublicPackage checks if a package exists in the public index.
 func (c *Cache) GetPublicPackage(packageName string) (PackageInfo, bool) {
 	if !c.enabled {
 		return PackageInfo{}, false
@@ -89,7 +89,7 @@ func (c *Cache) GetPublicPackage(packageName string) (PackageInfo, bool) {
 	return info, true
 }
 
-// GetPrivatePackage checks if a package exists in the private index
+// GetPrivatePackage checks if a package exists in the private index.
 func (c *Cache) GetPrivatePackage(packageName string) (PackageInfo, bool) {
 	if !c.enabled {
 		return PackageInfo{}, false
@@ -112,7 +112,7 @@ func (c *Cache) GetPrivatePackage(packageName string) (PackageInfo, bool) {
 	return info, true
 }
 
-// SetPublicPackage sets package information for the public index
+// SetPublicPackage sets package information for the public index.
 func (c *Cache) SetPublicPackage(packageName string, exists bool) {
 	if !c.enabled {
 		return
@@ -129,7 +129,7 @@ func (c *Cache) SetPublicPackage(packageName string, exists bool) {
 	c.publicCache.Add(packageName, info)
 }
 
-// SetPrivatePackage sets package information for the private index
+// SetPrivatePackage sets package information for the private index.
 func (c *Cache) SetPrivatePackage(packageName string, exists bool) {
 	if !c.enabled {
 		return
@@ -146,7 +146,7 @@ func (c *Cache) SetPrivatePackage(packageName string, exists bool) {
 	c.privateCache.Add(packageName, info)
 }
 
-// GetPublicPackagePage retrieves cached HTML content for a public package page
+// GetPublicPackagePage retrieves cached HTML content for a public package page.
 func (c *Cache) GetPublicPackagePage(packageName string) (PackagePageInfo, bool) {
 	if !c.enabled {
 		return PackagePageInfo{}, false
@@ -169,7 +169,7 @@ func (c *Cache) GetPublicPackagePage(packageName string) (PackagePageInfo, bool)
 	return info, true
 }
 
-// GetPrivatePackagePage retrieves cached HTML content for a private package page
+// GetPrivatePackagePage retrieves cached HTML content for a private package page.
 func (c *Cache) GetPrivatePackagePage(packageName string) (PackagePageInfo, bool) {
 	if !c.enabled {
 		return PackagePageInfo{}, false
@@ -192,7 +192,7 @@ func (c *Cache) GetPrivatePackagePage(packageName string) (PackagePageInfo, bool
 	return info, true
 }
 
-// SetPublicPackagePage sets HTML content for a public package page
+// SetPublicPackagePage sets HTML content for a public package page.
 func (c *Cache) SetPublicPackagePage(packageName string, html []byte) {
 	if !c.enabled {
 		return
@@ -209,7 +209,7 @@ func (c *Cache) SetPublicPackagePage(packageName string, html []byte) {
 	c.publicPageCache.Add(packageName, info)
 }
 
-// SetPrivatePackagePage sets HTML content for a private package page
+// SetPrivatePackagePage sets HTML content for a private package page.
 func (c *Cache) SetPrivatePackagePage(packageName string, html []byte) {
 	if !c.enabled {
 		return
@@ -226,7 +226,7 @@ func (c *Cache) SetPrivatePackagePage(packageName string, html []byte) {
 	c.privatePageCache.Add(packageName, info)
 }
 
-// Clear clears all cached data
+// Clear clears all cached data.
 func (c *Cache) Clear() {
 	if !c.enabled {
 		return
@@ -241,13 +241,26 @@ func (c *Cache) Clear() {
 	c.privatePageCache.Purge()
 }
 
-// IsEnabled returns whether the cache is enabled
+// ClearPrivateOnly clears only the private caches for testing purposes.
+func (c *Cache) ClearPrivateOnly() {
+	if !c.enabled {
+		return
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.privateCache.Purge()
+	c.privatePageCache.Purge()
+}
+
+// IsEnabled returns whether the cache is enabled.
 func (c *Cache) IsEnabled() bool {
 	return c.enabled
 }
 
-// GetStats returns cache statistics
-func (c *Cache) GetStats() (int, int, int, int) {
+// GetStats returns cache statistics.
+func (c *Cache) GetStats() (publicCount, privateCount, publicPageCount, privatePageCount int) {
 	if !c.enabled {
 		return 0, 0, 0, 0
 	}
