@@ -5,12 +5,11 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"python-index-proxy/config"
+	"python-index-proxy/proxy"
 	"time"
 
 	"github.com/gorilla/mux"
-
-	"python-index-proxy/config"
-	"python-index-proxy/proxy"
 )
 
 func main() {

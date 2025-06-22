@@ -112,25 +112,28 @@ test-integration-cache:
 test-race:
 	$(GOTEST) -race ./...
 
-# Format code
+# Format code (uses gofumpt only - same as CI)
+# Note: Ensure you're using the same Go version and tool versions as CI (Go 1.21)
 .PHONY: fmt
 fmt:
-	$(GOCMD) fmt ./...
+	$(shell go env GOPATH)/bin/gofumpt -w .
 
-# Run linter
+# Run linter (uses golangci-lint - same as CI)
+# Note: Ensure you're using the same Go version and tool versions as CI (Go 1.21)
 .PHONY: lint
 lint:
-	golangci-lint run
+	$(shell go env GOPATH)/bin/golangci-lint run
 
 # Install linter
 .PHONY: install-lint
 install-lint:
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 
-# Run security scan
+# Run security scan (uses gosec - same as CI)
+# Note: Ensure you're using the same Go version and tool versions as CI (Go 1.21)
 .PHONY: security
 security:
-	gosec -fmt=json -out=security-report.json ./...
+	$(shell go env GOPATH)/bin/gosec -fmt=json -out=security-report.json ./...
 
 # Install security scanner
 .PHONY: install-security

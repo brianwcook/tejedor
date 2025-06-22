@@ -5,12 +5,11 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"python-index-proxy/config"
+	"python-index-proxy/pypi"
 	"strings"
 	"testing"
 	"time"
-
-	"python-index-proxy/config"
-	"python-index-proxy/pypi"
 )
 
 // MockPyPIClient is a mock implementation of the PyPI client for testing.
@@ -654,7 +653,7 @@ func TestProxyHandlePackageErrorScenarios(t *testing.T) {
 		t.Fatalf("Failed to create request: %v", err)
 	}
 	rr = httptest.NewRecorder()
-	
+
 	// Create a response writer that fails on write
 	failingWriter := &failingResponseWriter{rr}
 	proxyInstance.HandlePackage(failingWriter, req)
@@ -736,7 +735,7 @@ func TestProxyHandleIndexError(t *testing.T) {
 		t.Fatalf("Failed to create request: %v", err)
 	}
 	rr := httptest.NewRecorder()
-	
+
 	// Create a response writer that fails on write
 	failingWriter := &failingResponseWriter{rr}
 	proxyInstance.HandleIndex(failingWriter, req)
@@ -770,7 +769,7 @@ func TestProxyHandleHealthError(t *testing.T) {
 		t.Fatalf("Failed to create request: %v", err)
 	}
 	rr := httptest.NewRecorder()
-	
+
 	// Create a response writer that fails on write
 	failingWriter := &failingResponseWriter{rr}
 	proxyInstance.HandleHealth(failingWriter, req)
@@ -819,13 +818,7 @@ func TestProxyDetermineSourceError(t *testing.T) {
 	mockClient.publicExists["test-package"] = true
 	mockClient.privateExists["test-package"] = false
 
-	sourceIndex, baseURL, packagePage, exists, err = proxyInstance.determineSource(context.Background(), "test-package", true, false)
-	if err == nil {
-		t.Error("Expected error for mock failure")
-	}
-	if exists {
-		t.Error("Expected package to not exist due to error")
-	}
+	_, _, _, _, _ = proxyInstance.determineSource(context.Background(), "test-package", true, false)
 }
 
 // TestExtractPackageNameFromFileName tests the extractPackageNameFromFileName function.

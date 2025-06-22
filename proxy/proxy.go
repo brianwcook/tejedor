@@ -4,12 +4,11 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"regexp"
-	"strings"
-
 	"python-index-proxy/cache"
 	"python-index-proxy/config"
 	"python-index-proxy/pypi"
+	"regexp"
+	"strings"
 )
 
 const publicPyPIFileBaseURL = "https://files.pythonhosted.org/"
@@ -273,15 +272,15 @@ func (p *Proxy) HandleHealth(w http.ResponseWriter, r *http.Request) {
 	publicLen, privateLen, publicPageLen, privatePageLen := p.cache.GetStats()
 
 	response := fmt.Sprintf(`{
-		"status": "healthy",
-		"cache": {
-			"enabled": %t,
-			"public_packages": %d,
-			"private_packages": %d,
-			"public_pages": %d,
-			"private_pages": %d
-		}
-	}`, p.cache.IsEnabled(), publicLen, privateLen, publicPageLen, privatePageLen)
+        "status": "healthy",
+        "cache": {
+            "enabled": %t,
+            "public_packages": %d,
+            "private_packages": %d,
+            "public_pages": %d,
+            "private_pages": %d
+        }
+    }`, p.cache.IsEnabled(), publicLen, privateLen, publicPageLen, privatePageLen)
 
 	// Write the response
 	if _, err := w.Write([]byte(response)); err != nil {

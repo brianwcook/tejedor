@@ -313,4 +313,41 @@ This security model ensures that your users are protected from supply chain atta
 
 This project is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0).
 
-Copyright (C) 2024 Brian Cook <bcook@redhat.com> 
+Copyright (C) 2024 Brian Cook <bcook@redhat.com>
+
+## Development: Linting and Formatting
+
+To ensure your code matches CI checks, use the provided Makefile targets:
+
+- `make fmt` — Formats code using gofumpt (same as CI expects)
+- `make lint` — Runs golangci-lint (same as CI)
+- `make security` — Runs gosec security scan (same as CI)
+
+### Setup
+
+**Important**: Use the same Go version and tool versions as CI to avoid discrepancies.
+
+**Go Version**: Use Go 1.21 (same as CI)
+
+**Install tools with specific versions**:
+
+```bash
+# Install Go 1.21 if you don't have it
+# go install golang.org/dl/go1.21@latest
+# go1.21 download
+
+# Install tools with versions matching CI
+go install mvdan.cc/gofumpt@latest
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
+go install github.com/securego/gosec/v2/cmd/gosec@latest
+```
+
+### Recommended workflow
+
+1. Run `make fmt` before committing to auto-format your code.
+2. Run `make lint` to catch lint issues before pushing.
+3. Run `make security` to check for security issues.
+
+**Note**: The Makefile uses full paths to installed binaries to ensure consistency. If you get "command not found" errors, make sure you've installed the tools using the commands above.
+
+This will help minimize discrepancies between local and CI runs. 

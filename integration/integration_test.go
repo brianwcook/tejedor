@@ -5,12 +5,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"python-index-proxy/config"
+	"python-index-proxy/proxy"
 	"strings"
 	"testing"
 	"time"
-
-	"python-index-proxy/config"
-	"python-index-proxy/proxy"
 )
 
 // isCI returns true if running in CI environment.
