@@ -127,6 +127,16 @@ lint:
 install-lint:
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 
+# Run security scan
+.PHONY: security
+security:
+	gosec -fmt=json -out=security-report.json ./...
+
+# Install security scanner
+.PHONY: install-security
+install-security:
+	go install github.com/securego/gosec/v2/cmd/gosec@latest
+
 # Create default config file
 .PHONY: config
 config:
@@ -159,5 +169,7 @@ help:
 	@echo "  fmt                - Format code"
 	@echo "  lint               - Run linter"
 	@echo "  install-lint       - Install linter"
+	@echo "  security           - Run security scan"
+	@echo "  install-security   - Install security scanner"
 	@echo "  config             - Create default config file"
 	@echo "  help               - Show this help message" 
