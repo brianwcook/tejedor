@@ -554,7 +554,7 @@ func TestProxyErrorCases(t *testing.T) {
 
 	// Test package request with mock error
 	mockClient.shouldError = true
-	req, err := http.NewRequest("GET", "/packages/source/p/test/test-1.0.0.tar.gz", http.NoBody)
+	req, err := http.NewRequest("GET", "/packages/source/p/test-package/test-package-1.0.0.tar.gz", http.NoBody)
 	if err != nil {
 		t.Fatalf("Failed to create request: %v", err)
 	}
@@ -566,7 +566,7 @@ func TestProxyErrorCases(t *testing.T) {
 	}
 
 	// Test package request with mock error
-	req, err = http.NewRequest("GET", "/packages/source/p/test/test-1.0.0.tar.gz", http.NoBody)
+	req, err = http.NewRequest("GET", "/packages/source/p/test-package/test-package-1.0.0.tar.gz", http.NoBody)
 	if err != nil {
 		t.Fatalf("Failed to create request: %v", err)
 	}
@@ -578,7 +578,7 @@ func TestProxyErrorCases(t *testing.T) {
 	}
 
 	// Test package request with mock error
-	req, err = http.NewRequest("GET", "/packages/source/p/test/test-1.0.0.tar.gz", http.NoBody)
+	req, err = http.NewRequest("GET", "/packages/source/p/test-package/test-package-1.0.0.tar.gz", http.NoBody)
 	if err != nil {
 		t.Fatalf("Failed to create request: %v", err)
 	}
@@ -587,6 +587,244 @@ func TestProxyErrorCases(t *testing.T) {
 
 	if rr.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status 500, got %d", rr.Code)
+	}
+}
+
+// TestProxyNewProxyError tests NewProxy with invalid cache configuration.
+func TestProxyNewProxyError(t *testing.T) {
+	// Create test configuration with invalid cache size (negative)
+	cfg := &config.Config{
+		PublicPyPIURL:  "https://pypi.org/simple/",
+		PrivatePyPIURL: "https://console.redhat.com/api/pulp-content/public-calunga/mypypi/simple",
+		Port:           8080,
+		CacheEnabled:   true,
+		CacheSize:      -1, // Invalid cache size
+		CacheTTL:       1,
+	}
+
+	// Create proxy instance - should fail
+	_, err := NewProxy(cfg)
+	if err == nil {
+		t.Error("Expected error for invalid cache configuration")
+	}
+}
+
+// TestProxyHandlePackageErrorScenarios tests error scenarios in HandlePackage.
+func TestProxyHandlePackageErrorScenarios(t *testing.T) {
+	// Create test configuration
+	cfg := &config.Config{
+		PublicPyPIURL:  "https://pypi.org/simple/",
+		PrivatePyPIURL: "https://console.redhat.com/api/pulp-content/public-calunga/mypypi/simple",
+		Port:           8080,
+		CacheEnabled:   false,
+		CacheSize:      100,
+		CacheTTL:       1,
+	}
+
+	// Create proxy instance
+	proxyInstance, err := NewProxy(cfg)
+	if err != nil {
+		t.Fatalf("Failed to create proxy: %v", err)
+	}
+
+	// Replace the client with our mock
+	mockClient := NewMockPyPIClient()
+	proxyInstance.client = mockClient
+
+	// Test package request with mock error in GetPackagePage
+	mockClient.shouldError = true
+	req, err := http.NewRequest("GET", "/simple/test-package/", http.NoBody)
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+	rr := httptest.NewRecorder()
+	proxyInstance.HandlePackage(rr, req)
+
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("Expected status 500, got %d", rr.Code)
+	}
+
+	// Test package request with write error
+	mockClient.shouldError = false
+	mockClient.publicExists["test-package"] = true
+	mockClient.privateExists["test-package"] = false
+
+	req, err = http.NewRequest("GET", "/simple/test-package/", http.NoBody)
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+	rr = httptest.NewRecorder()
+	
+	// Create a response writer that fails on write
+	failingWriter := &failingResponseWriter{rr}
+	proxyInstance.HandlePackage(failingWriter, req)
+
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("Expected status 500, got %d", rr.Code)
+	}
+}
+
+// TestProxyHandleFileErrorScenarios tests error scenarios in HandleFile.
+func TestProxyHandleFileErrorScenarios(t *testing.T) {
+	// Create test configuration
+	cfg := &config.Config{
+		PublicPyPIURL:  "https://pypi.org/simple/",
+		PrivatePyPIURL: "https://console.redhat.com/api/pulp-content/public-calunga/mypypi/simple",
+		Port:           8080,
+		CacheEnabled:   false,
+		CacheSize:      100,
+		CacheTTL:       1,
+	}
+
+	// Create proxy instance
+	proxyInstance, err := NewProxy(cfg)
+	if err != nil {
+		t.Fatalf("Failed to create proxy: %v", err)
+	}
+
+	// Replace the client with our mock
+	mockClient := NewMockPyPIClient()
+	proxyInstance.client = mockClient
+
+	// Test file request with empty package name
+	req, err := http.NewRequest("GET", "/packages/source/p//test-package-1.0.0.tar.gz", http.NoBody)
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+	rr := httptest.NewRecorder()
+	proxyInstance.HandleFile(rr, req)
+
+	// This should return 404 because the package doesn't exist, not 400
+	if rr.Code != http.StatusNotFound {
+		t.Errorf("Expected status 404, got %d", rr.Code)
+	}
+
+	// Test file request with invalid package name extraction
+	req, err = http.NewRequest("GET", "/packages/source/p/test-package/.tar.gz", http.NoBody)
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+	rr = httptest.NewRecorder()
+	proxyInstance.HandleFile(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 400, got %d", rr.Code)
+	}
+}
+
+// TestProxyHandleIndexError tests error scenarios in HandleIndex.
+func TestProxyHandleIndexError(t *testing.T) {
+	// Create test configuration
+	cfg := &config.Config{
+		PublicPyPIURL:  "https://pypi.org/simple/",
+		PrivatePyPIURL: "https://console.redhat.com/api/pulp-content/public-calunga/mypypi/simple",
+		Port:           8080,
+		CacheEnabled:   false,
+		CacheSize:      100,
+		CacheTTL:       1,
+	}
+
+	// Create proxy instance
+	proxyInstance, err := NewProxy(cfg)
+	if err != nil {
+		t.Fatalf("Failed to create proxy: %v", err)
+	}
+
+	// Test index page with write error
+	req, err := http.NewRequest("GET", "/", http.NoBody)
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+	rr := httptest.NewRecorder()
+	
+	// Create a response writer that fails on write
+	failingWriter := &failingResponseWriter{rr}
+	proxyInstance.HandleIndex(failingWriter, req)
+
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("Expected status 500, got %d", rr.Code)
+	}
+}
+
+// TestProxyHandleHealthError tests error scenarios in HandleHealth.
+func TestProxyHandleHealthError(t *testing.T) {
+	// Create test configuration
+	cfg := &config.Config{
+		PublicPyPIURL:  "https://pypi.org/simple/",
+		PrivatePyPIURL: "https://console.redhat.com/api/pulp-content/public-calunga/mypypi/simple",
+		Port:           8080,
+		CacheEnabled:   false,
+		CacheSize:      100,
+		CacheTTL:       1,
+	}
+
+	// Create proxy instance
+	proxyInstance, err := NewProxy(cfg)
+	if err != nil {
+		t.Fatalf("Failed to create proxy: %v", err)
+	}
+
+	// Test health endpoint with write error
+	req, err := http.NewRequest("GET", "/health", http.NoBody)
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+	rr := httptest.NewRecorder()
+	
+	// Create a response writer that fails on write
+	failingWriter := &failingResponseWriter{rr}
+	proxyInstance.HandleHealth(failingWriter, req)
+
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("Expected status 500, got %d", rr.Code)
+	}
+}
+
+// TestProxyDetermineSourceError tests error scenarios in determineSource.
+func TestProxyDetermineSourceError(t *testing.T) {
+	// Create test configuration
+	cfg := &config.Config{
+		PublicPyPIURL:  "https://pypi.org/simple/",
+		PrivatePyPIURL: "https://console.redhat.com/api/pulp-content/public-calunga/mypypi/simple",
+		Port:           8080,
+		CacheEnabled:   false,
+		CacheSize:      100,
+		CacheTTL:       1,
+	}
+
+	// Create proxy instance
+	proxyInstance, err := NewProxy(cfg)
+	if err != nil {
+		t.Fatalf("Failed to create proxy: %v", err)
+	}
+
+	// Replace the client with our mock
+	mockClient := NewMockPyPIClient()
+	proxyInstance.client = mockClient
+
+	// Test determineSource with package that doesn't exist
+	sourceIndex, baseURL, packagePage, exists, err := proxyInstance.determineSource(context.Background(), "non-existent-package", false, false)
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+	if exists {
+		t.Error("Expected package to not exist")
+	}
+	if sourceIndex != "" || baseURL != "" || packagePage != nil {
+		t.Error("Expected empty values for non-existent package")
+	}
+
+	// Test determineSource with mock error
+	mockClient.shouldError = true
+	mockClient.publicExists["test-package"] = true
+	mockClient.privateExists["test-package"] = false
+
+	sourceIndex, baseURL, packagePage, exists, err = proxyInstance.determineSource(context.Background(), "test-package", true, false)
+	if err == nil {
+		t.Error("Expected error for mock failure")
+	}
+	if exists {
+		t.Error("Expected package to not exist due to error")
 	}
 }
 
@@ -628,4 +866,13 @@ func TestExtractPackageNameFromFileName(t *testing.T) {
 			}
 		})
 	}
+}
+
+// failingResponseWriter is a response writer that fails on write for testing error scenarios.
+type failingResponseWriter struct {
+	*httptest.ResponseRecorder
+}
+
+func (f *failingResponseWriter) Write(data []byte) (int, error) {
+	return 0, fmt.Errorf("mock write error")
 }
