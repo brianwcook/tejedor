@@ -256,4 +256,4 @@ func (c *Cache) GetStats() (int, int, int, int) {
 	defer c.mu.RUnlock()
 
 	return c.publicCache.Len(), c.privateCache.Len(), c.publicPageCache.Len(), c.privatePageCache.Len()
-} 
+}

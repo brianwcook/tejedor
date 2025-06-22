@@ -1,0 +1,41 @@
+# Branch Protection Rules Configuration
+# This file documents the required branch protection settings for the repository
+# These settings should be configured in GitHub repository settings
+
+# Branch: main
+# Protection Rules:
+# - Require a pull request before merging
+# - Require status checks to pass before merging
+# - Required status checks:
+#   - test (Run Tests)
+#   - lint (Lint Code) 
+#   - security (Security Scan)
+#   - build (Build)
+# - Require branches to be up to date before merging
+# - Require conversation resolution before merging
+# - Require signed commits
+# - Require linear history
+# - Include administrators
+# - Restrict pushes that create files
+# - Restrict pushes that delete files
+# - Restrict pushes that force push
+
+# Branch: develop
+# Protection Rules:
+# - Require a pull request before merging
+# - Require status checks to pass before merging
+# - Required status checks:
+#   - test (Run Tests)
+#   - lint (Lint Code)
+#   - security (Security Scan)
+#   - build (Build)
+# - Require branches to be up to date before merging
+# - Require conversation resolution before merging
+# - Include administrators
+
+# To configure these rules:
+# 1. Go to repository Settings > Branches
+# 2. Add rule for branch pattern: main
+# 3. Configure the above settings
+# 4. Add rule for branch pattern: develop
+# 5. Configure the above settings 

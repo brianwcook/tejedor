@@ -39,15 +39,71 @@ func NewProxy(cfg *config.Config) (*Proxy, error) {
 // This ensures that only source distributions are served from public PyPI
 func (p *Proxy) filterWheelFiles(htmlContent []byte) []byte {
 	content := string(htmlContent)
-	
+
 	// Regular expression to match wheel file links
 	// Matches <a href="...">...whl</a> patterns
 	wheelPattern := regexp.MustCompile(`<a[^>]*href="[^"]*\.whl[^"]*"[^>]*>.*?\.whl</a>\s*<br\s*/>\s*`)
-	
+
 	// Remove wheel file links
 	filteredContent := wheelPattern.ReplaceAllString(content, "")
-	
+
 	return []byte(filteredContent)
+}
+
+// determineSource determines which index to serve from and gets cached content if available
+func (p *Proxy) determineSource(ctx context.Context, packageName string, publicExists, privateExists bool) (string, string, []byte, bool, error) {
+	var sourceIndex string
+	var baseURL string
+	var cachedPage cache.PackagePageInfo
+	var found bool
+
+	if privateExists {
+		// If package exists in private index, serve from there
+		sourceIndex = p.config.PrivatePyPIURL
+		baseURL = p.config.PrivatePyPIURL
+		
+		// Check cache for private package page
+		if p.cache.IsEnabled() {
+			cachedPage, found = p.cache.GetPrivatePackagePage(packageName)
+		}
+	} else if publicExists {
+		// If package only exists in public index, serve from there
+		sourceIndex = p.config.PublicPyPIURL
+		baseURL = p.config.PublicPyPIURL
+		
+		// Check cache for public package page
+		if p.cache.IsEnabled() {
+			cachedPage, found = p.cache.GetPublicPackagePage(packageName)
+		}
+	} else {
+		// Package doesn't exist in either index
+		return "", "", nil, false, nil
+	}
+
+	var packagePage []byte
+	var err error
+
+	// If found in cache, use cached content
+	if found {
+		packagePage = cachedPage.HTML
+	} else {
+		// Get package page from the determined source
+		packagePage, err = p.client.GetPackagePage(ctx, baseURL, packageName)
+		if err != nil {
+			return "", "", nil, false, fmt.Errorf("error retrieving package page: %w", err)
+		}
+
+		// Cache the package page for future requests
+		if p.cache.IsEnabled() {
+			if privateExists {
+				p.cache.SetPrivatePackagePage(packageName, packagePage)
+			} else {
+				p.cache.SetPublicPackagePage(packageName, packagePage)
+			}
+		}
+	}
+
+	return sourceIndex, baseURL, packagePage, true, nil
 }
 
 // HandlePackage handles requests for package information
@@ -75,31 +131,14 @@ func (p *Proxy) HandlePackage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Determine which index to serve from
-	var sourceIndex string
-	var baseURL string
-	var cachedPage cache.PackagePageInfo
-	var found bool
+	// Determine which index to serve from and get content
+	sourceIndex, _, packagePage, exists, err := p.determineSource(ctx, packageName, publicExists, privateExists)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error determining source: %v", err), http.StatusInternalServerError)
+		return
+	}
 
-	if privateExists {
-		// If package exists in private index, serve from there
-		sourceIndex = p.config.PrivatePyPIURL
-		baseURL = p.config.PrivatePyPIURL
-		
-		// Check cache for private package page
-		if p.cache.IsEnabled() {
-			cachedPage, found = p.cache.GetPrivatePackagePage(packageName)
-		}
-	} else if publicExists {
-		// If package only exists in public index, serve from there
-		sourceIndex = p.config.PublicPyPIURL
-		baseURL = p.config.PublicPyPIURL
-		
-		// Check cache for public package page
-		if p.cache.IsEnabled() {
-			cachedPage, found = p.cache.GetPublicPackagePage(packageName)
-		}
-	} else {
+	if !exists {
 		// Package doesn't exist in either index
 		http.Error(w, "Package not found", http.StatusNotFound)
 		return
@@ -107,29 +146,6 @@ func (p *Proxy) HandlePackage(w http.ResponseWriter, r *http.Request) {
 
 	// Add source header
 	w.Header().Set(pypi.ResponseHeaderSource, sourceIndex)
-
-	var packagePage []byte
-
-	// If found in cache, use cached content
-	if found {
-		packagePage = cachedPage.HTML
-	} else {
-		// Get package page from the determined source
-		packagePage, err = p.client.GetPackagePage(ctx, baseURL, packageName)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("Error retrieving package page: %v", err), http.StatusInternalServerError)
-			return
-		}
-
-		// Cache the package page for future requests
-		if p.cache.IsEnabled() {
-			if privateExists {
-				p.cache.SetPrivatePackagePage(packageName, packagePage)
-			} else {
-				p.cache.SetPublicPackagePage(packageName, packagePage)
-			}
-		}
-	}
 
 	// Set content type
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -148,13 +164,16 @@ func (p *Proxy) HandlePackage(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	// Write the package page
-	w.Write(finalContent)
+	if _, err := w.Write(finalContent); err != nil {
+		http.Error(w, fmt.Sprintf("Error writing response: %v", err), http.StatusInternalServerError)
+		return
+	}
 }
 
 // HandleFile handles requests for package files
 func (p *Proxy) HandleFile(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	
+
 	// Extract file path from URL
 	// Expected format: /packages/{file_path}
 	pathParts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
@@ -162,7 +181,7 @@ func (p *Proxy) HandleFile(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid file path", http.StatusBadRequest)
 		return
 	}
-	
+
 	filePath := strings.Join(pathParts[1:], "/")
 	if filePath == "" {
 		http.Error(w, "File path is required", http.StatusBadRequest)
@@ -225,7 +244,7 @@ func (p *Proxy) HandleIndex(w http.ResponseWriter, r *http.Request) {
 	// Return a simple index page
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set(pypi.ResponseHeaderSource, "proxy")
-	
+
 	indexHTML := `<!DOCTYPE html>
 <html>
 <head>
@@ -240,17 +259,21 @@ func (p *Proxy) HandleIndex(w http.ResponseWriter, r *http.Request) {
     </ul>
 </body>
 </html>`
-	
-	w.Write([]byte(indexHTML))
+
+	// Write the index page
+	if _, err := w.Write([]byte(indexHTML)); err != nil {
+		http.Error(w, fmt.Sprintf("Error writing response: %v", err), http.StatusInternalServerError)
+		return
+	}
 }
 
 // HandleHealth handles health check requests and returns cache statistics
 func (p *Proxy) HandleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set(pypi.ResponseHeaderSource, "proxy")
-	
+
 	publicLen, privateLen, publicPageLen, privatePageLen := p.cache.GetStats()
-	
+
 	response := fmt.Sprintf(`{
 		"status": "healthy",
 		"cache": {
@@ -261,8 +284,12 @@ func (p *Proxy) HandleHealth(w http.ResponseWriter, r *http.Request) {
 			"private_pages": %d
 		}
 	}`, p.cache.IsEnabled(), publicLen, privateLen, publicPageLen, privatePageLen)
-	
-	w.Write([]byte(response))
+
+	// Write the response
+	if _, err := w.Write([]byte(response)); err != nil {
+		http.Error(w, fmt.Sprintf("Error writing response: %v", err), http.StatusInternalServerError)
+		return
+	}
 }
 
 // CheckPackageExists checks if a package exists in both indexes using cache when possible
@@ -317,17 +344,17 @@ func (p *Proxy) extractPackageNameFromFileName(fileName string) string {
 	fileName = strings.TrimSuffix(fileName, ".whl")
 	fileName = strings.TrimSuffix(fileName, ".tar.gz")
 	fileName = strings.TrimSuffix(fileName, ".zip")
-	
+
 	// Split by dash and take the first part
 	parts := strings.Split(fileName, "-")
 	if len(parts) > 0 {
 		return parts[0]
 	}
-	
+
 	return ""
 }
 
 // GetCache returns the cache instance for testing purposes
 func (p *Proxy) GetCache() *cache.Cache {
 	return p.cache
-} 
+}

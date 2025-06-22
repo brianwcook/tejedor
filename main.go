@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"python-index-proxy/config"
 	"python-index-proxy/proxy"
@@ -53,7 +54,16 @@ func main() {
 		log.Printf("Cache TTL: %d hours", cfg.CacheTTL)
 	}
 
-	if err := http.ListenAndServe(addr, router); err != nil {
+	// Create server with timeouts to prevent DoS attacks
+	server := &http.Server{
+		Addr:         addr,
+		Handler:      router,
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
+	if err := server.ListenAndServe(); err != nil {
 		log.Fatalf("Error starting server: %v", err)
 	}
 }
@@ -64,4 +74,4 @@ func loggingMiddleware(next http.Handler) http.Handler {
 		log.Printf("%s %s %s", r.RemoteAddr, r.Method, r.URL.Path)
 		next.ServeHTTP(w, r)
 	})
-} 
+}

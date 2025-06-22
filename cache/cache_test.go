@@ -255,4 +255,4 @@ func TestPackagePageCachingDisabled(t *testing.T) {
 	if found {
 		t.Error("Expected not to find package page when cache is disabled")
 	}
-} 
+}

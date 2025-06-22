@@ -15,18 +15,18 @@ import (
 
 // MockPyPIClient is a mock implementation of the PyPI client for testing
 type MockPyPIClient struct {
-	publicCalls  map[string]int
-	privateCalls map[string]int
-	publicExists map[string]bool
+	publicCalls   map[string]int
+	privateCalls  map[string]int
+	publicExists  map[string]bool
 	privateExists map[string]bool
-	shouldError  bool
+	shouldError   bool
 }
 
 func NewMockPyPIClient() *MockPyPIClient {
 	return &MockPyPIClient{
-		publicCalls:  make(map[string]int),
-		privateCalls: make(map[string]int),
-		publicExists: make(map[string]bool),
+		publicCalls:   make(map[string]int),
+		privateCalls:  make(map[string]int),
+		publicExists:  make(map[string]bool),
 		privateExists: make(map[string]bool),
 	}
 }
@@ -67,7 +67,9 @@ func (m *MockPyPIClient) ProxyFile(ctx context.Context, fileURL string, w http.R
 	if m.shouldError {
 		return fmt.Errorf("mock error")
 	}
-	w.Write([]byte("mock file content"))
+	if _, err := w.Write([]byte("mock file content")); err != nil {
+		return fmt.Errorf("mock write error: %w", err)
+	}
 	return nil
 }
 
@@ -380,4 +382,4 @@ func TestProxyCachingHTTPRequests(t *testing.T) {
 	if rr1.Body.String() != rr2.Body.String() {
 		t.Error("Expected cached responses to be identical")
 	}
-} 
+}

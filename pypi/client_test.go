@@ -66,12 +66,14 @@ func TestPackageNotExists(t *testing.T) {
 
 func TestGetPackagePage(t *testing.T) {
 	expectedContent := "<html><body>Package page</body></html>"
-	
+
 	// Create test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" {
 			w.Header().Set("Content-Type", "text/html")
-			w.Write([]byte(expectedContent))
+			if _, err := w.Write([]byte(expectedContent)); err != nil {
+				t.Errorf("Error writing response: %v", err)
+			}
 		} else {
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -87,7 +89,7 @@ func TestGetPackagePage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
-	
+
 	if string(content) != expectedContent {
 		t.Errorf("Expected content %s, got %s", expectedContent, string(content))
 	}
@@ -113,11 +115,13 @@ func TestGetPackagePageNotFound(t *testing.T) {
 
 func TestGetPackageFile(t *testing.T) {
 	expectedContent := "package file content"
-	
+
 	// Create test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/octet-stream")
-		w.Write([]byte(expectedContent))
+		if _, err := w.Write([]byte(expectedContent)); err != nil {
+			t.Errorf("Error writing response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -129,7 +133,7 @@ func TestGetPackageFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
-	
+
 	if string(content) != expectedContent {
 		t.Errorf("Expected content %s, got %s", expectedContent, string(content))
 	}
@@ -155,12 +159,14 @@ func TestGetPackageFileNotFound(t *testing.T) {
 func TestProxyFile(t *testing.T) {
 	expectedContent := "proxied file content"
 	expectedHeader := "test-header-value"
-	
+
 	// Create test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/octet-stream")
 		w.Header().Set("X-Test-Header", expectedHeader)
-		w.Write([]byte(expectedContent))
+		if _, err := w.Write([]byte(expectedContent)); err != nil {
+			t.Errorf("Error writing response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -175,16 +181,16 @@ func TestProxyFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
-	
+
 	// Check response
 	if rr.Code != http.StatusOK {
 		t.Errorf("Expected status 200, got %d", rr.Code)
 	}
-	
+
 	if rr.Body.String() != expectedContent {
 		t.Errorf("Expected content %s, got %s", expectedContent, rr.Body.String())
 	}
-	
+
 	if rr.Header().Get("X-Test-Header") != expectedHeader {
 		t.Errorf("Expected header %s, got %s", expectedHeader, rr.Header().Get("X-Test-Header"))
 	}
@@ -237,4 +243,4 @@ func makeBaseURL(serverURL string) string {
 	u, _ := url.Parse(serverURL)
 	u.Path = "/"
 	return u.String()
-} 
+}

@@ -1,0 +1,63 @@
+run:
+  timeout: 5m
+  go: "1.21"
+
+linters:
+  enable:
+    - gofmt
+    - goimports
+    - govet
+    - errcheck
+    - staticcheck
+    - gosimple
+    - ineffassign
+    - unused
+    - misspell
+    - gosec
+    - gocyclo
+    - dupl
+    - goconst
+    - gocritic
+    - godot
+    - gofumpt
+    - revive
+    - stylecheck
+    - whitespace
+
+linters-settings:
+  gocyclo:
+    min-complexity: 15
+  dupl:
+    threshold: 100
+  goconst:
+    min-len: 3
+    min-occurrences: 3
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+  revive:
+    rules:
+      - name: exported
+        arguments:
+          - disableStutteringCheck
+  stylecheck:
+    checks: ["all", "-ST1003", "-ST1016", "-ST1020", "-ST1021", "-ST1022"]
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - gocyclo
+        - dupl
+        - goconst
+    - path: integration/
+      linters:
+        - gocyclo
+        - dupl
+        - goconst
+  max-issues-per-linter: 0
+  max-same-issues: 0 

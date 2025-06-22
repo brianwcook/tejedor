@@ -43,12 +43,24 @@ func LoadConfig(configPath string) (*Config, error) {
 	viper.AutomaticEnv()
 
 	// Bind environment variables
-	viper.BindEnv("public_pypi_url", "PYPI_PROXY_PUBLIC_PYPI_URL")
-	viper.BindEnv("private_pypi_url", "PYPI_PROXY_PRIVATE_PYPI_URL")
-	viper.BindEnv("port", "PYPI_PROXY_PORT")
-	viper.BindEnv("cache_enabled", "PYPI_PROXY_CACHE_ENABLED")
-	viper.BindEnv("cache_size", "PYPI_PROXY_CACHE_SIZE")
-	viper.BindEnv("cache_ttl_hours", "PYPI_PROXY_CACHE_TTL_HOURS")
+	if err := viper.BindEnv("public_pypi_url", "PYPI_PROXY_PUBLIC_PYPI_URL"); err != nil {
+		return nil, fmt.Errorf("error binding public_pypi_url env var: %w", err)
+	}
+	if err := viper.BindEnv("private_pypi_url", "PYPI_PROXY_PRIVATE_PYPI_URL"); err != nil {
+		return nil, fmt.Errorf("error binding private_pypi_url env var: %w", err)
+	}
+	if err := viper.BindEnv("port", "PYPI_PROXY_PORT"); err != nil {
+		return nil, fmt.Errorf("error binding port env var: %w", err)
+	}
+	if err := viper.BindEnv("cache_enabled", "PYPI_PROXY_CACHE_ENABLED"); err != nil {
+		return nil, fmt.Errorf("error binding cache_enabled env var: %w", err)
+	}
+	if err := viper.BindEnv("cache_size", "PYPI_PROXY_CACHE_SIZE"); err != nil {
+		return nil, fmt.Errorf("error binding cache_size env var: %w", err)
+	}
+	if err := viper.BindEnv("cache_ttl_hours", "PYPI_PROXY_CACHE_TTL_HOURS"); err != nil {
+		return nil, fmt.Errorf("error binding cache_ttl_hours env var: %w", err)
+	}
 
 	// If config file is specified, use it
 	if configPath != "" {
@@ -88,4 +100,4 @@ func CreateDefaultConfigFile(path string) error {
 	viper.Set("cache_ttl_hours", config.CacheTTL)
 
 	return viper.WriteConfigAs(path)
-} 
+}
