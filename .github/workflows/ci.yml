@@ -101,14 +101,13 @@ jobs:
         go-version: ${{ env.GO_VERSION }}
         cache: true
 
-    - name: Install gosec
-      run: go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
-
-    - name: Run gosec security scan
-      run: gosec -fmt=json -out=security-report.json ./...
+    - name: Run Gosec Security Scanner
+      uses: securego/gosec@master
+      with:
+        args: '-fmt=json -out=security-report.json ./...'
 
     - name: Upload security report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: security-report
         path: security-report.json
@@ -141,7 +140,7 @@ jobs:
         GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -o pypi-proxy-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.os == 'windows' && '.exe' || '' }} .
 
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: pypi-proxy-${{ matrix.os }}-${{ matrix.arch }}
         path: pypi-proxy-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.os == 'windows' && '.exe' || '' }}
@@ -167,7 +166,7 @@ jobs:
       run: echo "version=$(git describe --tags --always --dirty)" >> $GITHUB_OUTPUT
 
     - name: Download all build artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
 
     - name: Create Release
       uses: softprops/action-gh-release@v1

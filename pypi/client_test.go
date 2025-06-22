@@ -239,6 +239,69 @@ func TestPackageNameNormalization(t *testing.T) {
 	}
 }
 
+func TestPackageExistsWithError(t *testing.T) {
+	client := &Client{
+		httpClient: &http.Client{},
+	}
+
+	// Test with invalid URL to trigger error
+	exists, err := client.PackageExists(context.Background(), "invalid://url", "test-package")
+	if err == nil {
+		t.Error("Expected error for invalid URL, got nil")
+	}
+	if exists {
+		t.Error("Expected false for invalid URL")
+	}
+}
+
+func TestGetPackagePageWithError(t *testing.T) {
+	client := &Client{
+		httpClient: &http.Client{},
+	}
+
+	// Test with invalid URL to trigger error
+	content, err := client.GetPackagePage(context.Background(), "invalid://url", "test-package")
+	if err == nil {
+		t.Error("Expected error for invalid URL, got nil")
+	}
+	if content != nil {
+		t.Error("Expected nil content for invalid URL")
+	}
+}
+
+func TestGetPackageFileWithError(t *testing.T) {
+	client := &Client{
+		httpClient: &http.Client{},
+	}
+
+	// Test with invalid URL to trigger error
+	content, err := client.GetPackageFile(context.Background(), "invalid://url")
+	if err == nil {
+		t.Error("Expected error for invalid URL, got nil")
+	}
+	if content != nil {
+		t.Error("Expected nil content for invalid URL")
+	}
+}
+
+func TestProxyFileWithError(t *testing.T) {
+	client := &Client{
+		httpClient: &http.Client{},
+	}
+
+	// Test with invalid URL to trigger error
+	req, err := http.NewRequest("GET", "/test", nil)
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+	rr := httptest.NewRecorder()
+
+	err = client.ProxyFile(context.Background(), "invalid://url", rr, req.Method)
+	if err == nil {
+		t.Error("Expected error for invalid URL, got nil")
+	}
+}
+
 func makeBaseURL(serverURL string) string {
 	u, _ := url.Parse(serverURL)
 	u.Path = "/"
