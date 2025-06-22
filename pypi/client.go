@@ -24,7 +24,7 @@ type PyPIClient interface {
 	PackageExists(ctx context.Context, baseURL, packageName string) (bool, error)
 	GetPackagePage(ctx context.Context, baseURL, packageName string) ([]byte, error)
 	GetPackageFile(ctx context.Context, fileURL string) ([]byte, error)
-	ProxyFile(ctx context.Context, fileURL string, w http.ResponseWriter) error
+	ProxyFile(ctx context.Context, fileURL string, w http.ResponseWriter, method string) error
 }
 
 // Client represents a PyPI client
@@ -173,8 +173,8 @@ func (c *Client) GetPackageFile(ctx context.Context, fileURL string) ([]byte, er
 }
 
 // ProxyFile proxies a file from the specified URL to the response writer
-func (c *Client) ProxyFile(ctx context.Context, fileURL string, w http.ResponseWriter) error {
-	req, err := http.NewRequestWithContext(ctx, "GET", fileURL, nil)
+func (c *Client) ProxyFile(ctx context.Context, fileURL string, w http.ResponseWriter, method string) error {
+	req, err := http.NewRequestWithContext(ctx, method, fileURL, nil)
 	if err != nil {
 		return fmt.Errorf("error creating request: %w", err)
 	}

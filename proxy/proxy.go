@@ -142,6 +142,11 @@ func (p *Proxy) HandlePackage(w http.ResponseWriter, r *http.Request) {
 		finalContent = packagePage
 	}
 	
+	// For HEAD requests, only send headers, not body
+	if r.Method == "HEAD" {
+		return
+	}
+	
 	// Write the package page
 	w.Write(finalContent)
 }
@@ -208,7 +213,7 @@ func (p *Proxy) HandleFile(w http.ResponseWriter, r *http.Request) {
 	fileURL = strings.Replace(fileURL, "//packages/", "/packages/", 1)
 
 	// Proxy the file from the determined source
-	err = p.client.ProxyFile(ctx, fileURL, w)
+	err = p.client.ProxyFile(ctx, fileURL, w, r.Method)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error proxying file: %v", err), http.StatusInternalServerError)
 		return

@@ -35,8 +35,8 @@ func main() {
 	// Set up routes
 	router.HandleFunc("/", proxyInstance.HandleIndex).Methods("GET")
 	router.HandleFunc("/simple/", proxyInstance.HandleIndex).Methods("GET")
-	router.HandleFunc("/simple/{package}/", proxyInstance.HandlePackage).Methods("GET")
-	router.HandleFunc("/packages/{file:.*}", proxyInstance.HandleFile).Methods("GET")
+	router.HandleFunc("/simple/{package}/", proxyInstance.HandlePackage).Methods("GET", "HEAD")
+	router.HandleFunc("/packages/{file:.*}", proxyInstance.HandleFile).Methods("GET", "HEAD")
 	router.HandleFunc("/health", proxyInstance.HandleHealth).Methods("GET")
 
 	// Add middleware for logging

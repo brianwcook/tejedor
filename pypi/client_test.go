@@ -171,7 +171,7 @@ func TestProxyFile(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	// Test proxying file
-	err := client.ProxyFile(ctx, server.URL, rr)
+	err := client.ProxyFile(ctx, server.URL, rr, "GET")
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
@@ -204,7 +204,7 @@ func TestProxyFileNotFound(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	// Test proxying non-existent file
-	err := client.ProxyFile(ctx, server.URL, rr)
+	err := client.ProxyFile(ctx, server.URL, rr, "GET")
 	if err == nil {
 		t.Error("Expected error for non-existent file")
 	}

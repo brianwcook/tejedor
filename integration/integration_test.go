@@ -557,4 +557,57 @@ func TestPrivateIndexNoFiltering(t *testing.T) {
 		// may have different file types than public PyPI. The important thing is
 		// that no filtering is applied when serving from private index.
 	})
+}
+
+// TestProxyHEADRequests tests HEAD requests for /simple/{package}/ and /packages/{file}
+func TestProxyHEADRequests(t *testing.T) {
+	// Create test configuration
+	cfg := &config.Config{
+		PublicPyPIURL:  "https://pypi.org/simple/",
+		PrivatePyPIURL: "https://console.redhat.com/api/pulp-content/public-calunga/mypypi/simple",
+		Port:           8080,
+		CacheEnabled:   false,
+		CacheSize:      100,
+		CacheTTL:       1,
+	}
+
+	proxyInstance, err := proxy.NewProxy(cfg)
+	if err != nil {
+		t.Fatalf("Failed to create proxy: %v", err)
+	}
+
+	// HEAD request to /simple/{package}/
+	req, err := http.NewRequest("HEAD", "/simple/pycups/", nil)
+	if err != nil {
+		t.Fatalf("Failed to create HEAD request: %v", err)
+	}
+	rr := httptest.NewRecorder()
+	proxyInstance.HandlePackage(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("Expected status 200 for HEAD /simple/pycups/, got %d", rr.Code)
+	}
+	if rr.Body.Len() != 0 {
+		t.Error("Expected empty body for HEAD /simple/pycups/")
+	}
+	if rr.Header().Get("X-PyPI-Source") == "" {
+		t.Error("Expected X-PyPI-Source header for HEAD /simple/pycups/")
+	}
+
+	// HEAD request to /packages/{file}
+	filePath := "/packages/source/p/pycups/pycups-2.0.1.tar.gz"
+	req2, err := http.NewRequest("HEAD", filePath, nil)
+	if err != nil {
+		t.Fatalf("Failed to create HEAD request: %v", err)
+	}
+	rr2 := httptest.NewRecorder()
+	proxyInstance.HandleFile(rr2, req2)
+	if rr2.Code != http.StatusOK {
+		t.Errorf("Expected status 200 for HEAD %s, got %d", filePath, rr2.Code)
+	}
+	if rr2.Body.Len() != 0 {
+		t.Error("Expected empty body for HEAD /packages/{file}")
+	}
+	if rr2.Header().Get("X-PyPI-Source") == "" {
+		t.Error("Expected X-PyPI-Source header for HEAD /packages/{file}")
+	}
 } 

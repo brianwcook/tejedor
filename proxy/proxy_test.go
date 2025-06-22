@@ -63,7 +63,7 @@ func (m *MockPyPIClient) GetPackageFile(ctx context.Context, fileURL string) ([]
 	return []byte("mock file content"), nil
 }
 
-func (m *MockPyPIClient) ProxyFile(ctx context.Context, fileURL string, w http.ResponseWriter) error {
+func (m *MockPyPIClient) ProxyFile(ctx context.Context, fileURL string, w http.ResponseWriter, method string) error {
 	if m.shouldError {
 		return fmt.Errorf("mock error")
 	}
