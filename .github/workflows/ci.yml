@@ -37,12 +37,33 @@ jobs:
         # Skip integration tests that require network access in CI
         CI: true
 
+    - name: Run e2e tests
+      run: go test -v -race -coverprofile=e2e-coverage.out ./e2e
+      timeout-minutes: 10
+
+    - name: Run comprehensive e2e tests
+      run: |
+        # Install Docker if not available
+        if ! command -v docker &> /dev/null; then
+          echo "Docker not available, skipping comprehensive e2e tests"
+          exit 0
+        fi
+        
+        # Run the comprehensive e2e test script
+        cd e2e
+        ./test_e2e.sh
+      timeout-minutes: 20
+      env:
+        # Allow Docker to run in CI
+        DOCKER_BUILDKIT: 1
+
     - name: Merge coverage reports
       run: |
         # Create a combined coverage file
         echo "mode: set" > combined-coverage.out
         tail -n +2 coverage.out >> combined-coverage.out
         tail -n +2 integration-coverage.out >> combined-coverage.out
+        tail -n +2 e2e-coverage.out >> combined-coverage.out
 
     - name: Generate coverage report
       run: go tool cover -html=combined-coverage.out -o coverage.html
