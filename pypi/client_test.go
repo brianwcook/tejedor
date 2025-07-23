@@ -115,7 +115,6 @@ func TestPackageExistsWithGETFallback(t *testing.T) {
 
 	client := NewClient()
 	exists, err := client.PackageExists(context.Background(), server.URL, "test-package")
-
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -126,7 +125,7 @@ func TestPackageExistsWithGETFallback(t *testing.T) {
 
 func TestPackageExistsWithGETFallbackNotFound(t *testing.T) {
 	// Test the fallback to GET when HEAD returns 404 and GET also returns 404
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		// Both HEAD and GET return 404
 		w.WriteHeader(http.StatusNotFound)
 	}))
@@ -134,7 +133,6 @@ func TestPackageExistsWithGETFallbackNotFound(t *testing.T) {
 
 	client := NewClient()
 	exists, err := client.PackageExists(context.Background(), server.URL, "test-package")
-
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}

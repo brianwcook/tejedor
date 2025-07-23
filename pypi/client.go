@@ -85,7 +85,7 @@ func (c *HTTPClient) PackageExists(ctx context.Context, baseURL, packageName str
 	// Create a client that doesn't follow redirects for package existence checks
 	noRedirectClient := &http.Client{
 		Timeout: 30 * time.Second,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
 	}

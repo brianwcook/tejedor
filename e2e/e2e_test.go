@@ -18,11 +18,11 @@ const (
 	testTimeout = 30 * time.Second
 )
 
-// TestPrivatePackages tests installing packages that only exist in private PyPI
+// TestPrivatePackages tests installing packages that only exist in private PyPI.
 func TestPrivatePackages(t *testing.T) {
 	t.Parallel()
 
-	// Test packages that should be available in private PyPI
+	// Test packages that should be available in private PyPI.
 	packages := []string{"flask", "click", "jinja2", "werkzeug"}
 
 	for _, pkg := range packages {
@@ -32,7 +32,11 @@ func TestPrivatePackages(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to get package %s: %v", pkg, err)
 			}
-			defer resp.Body.Close()
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					t.Logf("Failed to close response body: %v", err)
+				}
+			}()
 
 			if resp.StatusCode != http.StatusOK {
 				t.Errorf("Package %s returned status %d, expected 200", pkg, resp.StatusCode)
@@ -47,11 +51,11 @@ func TestPrivatePackages(t *testing.T) {
 	}
 }
 
-// TestPublicPackages tests installing packages that only exist in public PyPI
+// TestPublicPackages tests installing packages that only exist in public PyPI.
 func TestPublicPackages(t *testing.T) {
 	t.Parallel()
 
-	// Test packages that should only be available in public PyPI
+	// Test packages that should only be available in public PyPI.
 	packages := []string{"urllib3", "certifi", "numpy", "pandas"}
 
 	for _, pkg := range packages {
@@ -61,7 +65,11 @@ func TestPublicPackages(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to get package %s: %v", pkg, err)
 			}
-			defer resp.Body.Close()
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					t.Logf("Failed to close response body: %v", err)
+				}
+			}()
 
 			if resp.StatusCode != http.StatusOK {
 				t.Errorf("Package %s returned status %d, expected 200", pkg, resp.StatusCode)
@@ -76,11 +84,11 @@ func TestPublicPackages(t *testing.T) {
 	}
 }
 
-// TestWheelFileFiltering tests that wheel files are filtered from public PyPI
+// TestWheelFileFiltering tests that wheel files are filtered from public PyPI.
 func TestWheelFileFiltering(t *testing.T) {
 	t.Parallel()
 
-	// Test packages that should have wheel files filtered
+	// Test packages that should have wheel files filtered.
 	packages := []string{"numpy", "pandas", "matplotlib"}
 
 	for _, pkg := range packages {
@@ -90,7 +98,11 @@ func TestWheelFileFiltering(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to get package %s: %v", pkg, err)
 			}
-			defer resp.Body.Close()
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					t.Logf("Failed to close response body: %v", err)
+				}
+			}()
 
 			if resp.StatusCode != http.StatusOK {
 				t.Fatalf("Package %s returned status %d, expected 200", pkg, resp.StatusCode)
@@ -123,11 +135,11 @@ func TestWheelFileFiltering(t *testing.T) {
 	}
 }
 
-// TestMixedPackages tests packages that exist in both private and public PyPI
+// TestMixedPackages tests packages that exist in both private and public PyPI.
 func TestMixedPackages(t *testing.T) {
 	t.Parallel()
 
-	// Test packages that might exist in both sources
+	// Test packages that might exist in both sources.
 	// These should be served from private PyPI (no filtering)
 	packages := []string{"flask", "click", "jinja2"}
 
@@ -138,7 +150,11 @@ func TestMixedPackages(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to get package %s: %v", pkg, err)
 			}
-			defer resp.Body.Close()
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					t.Logf("Failed to close response body: %v", err)
+				}
+			}()
 
 			if resp.StatusCode != http.StatusOK {
 				t.Fatalf("Package %s returned status %d, expected 200", pkg, resp.StatusCode)
@@ -166,7 +182,7 @@ func TestMixedPackages(t *testing.T) {
 	}
 }
 
-// TestPipInstall tests actual pip installs through the proxy
+// TestPipInstall tests actual pip installs through the proxy.
 func TestPipInstall(t *testing.T) {
 	t.Parallel()
 
@@ -174,17 +190,24 @@ func TestPipInstall(t *testing.T) {
 	venvDir := "test-venv-pip"
 
 	// Clean up any existing venv
-	os.RemoveAll(venvDir)
+	if err := os.RemoveAll(venvDir); err != nil {
+		t.Logf("Failed to remove existing venv: %v", err)
+	}
 
 	// Create virtual environment
 	cmd := exec.Command("python3", "-m", "venv", venvDir)
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to create virtual environment: %v", err)
 	}
-	defer os.RemoveAll(venvDir)
+	defer func() {
+		if err := os.RemoveAll(venvDir); err != nil {
+			t.Logf("Failed to remove venv: %v", err)
+		}
+	}()
 
-	// Test pip install with private packages
+	// Test pip install with private packages.
 	t.Run("private_packages", func(t *testing.T) {
+		// nolint:gosec // proxyURL is a constant, not user input
 		cmd := exec.Command(filepath.Join(venvDir, "bin", "pip"), "install",
 			"--index-url", proxyURL+"/simple/",
 			"--no-deps", "flask==2.3.3")
@@ -195,8 +218,9 @@ func TestPipInstall(t *testing.T) {
 		}
 	})
 
-	// Test pip install with public packages
+	// Test pip install with public packages.
 	t.Run("public_packages", func(t *testing.T) {
+		// nolint:gosec // proxyURL is a constant, not user input
 		cmd := exec.Command(filepath.Join(venvDir, "bin", "pip"), "install",
 			"--index-url", proxyURL+"/simple/",
 			"--no-deps", "urllib3==2.0.7")
@@ -208,7 +232,7 @@ func TestPipInstall(t *testing.T) {
 	})
 }
 
-// TestProxyHealth tests that the proxy health endpoint works
+// TestProxyHealth tests that the proxy health endpoint works.
 func TestProxyHealth(t *testing.T) {
 	t.Parallel()
 
@@ -216,14 +240,18 @@ func TestProxyHealth(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Health check failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Logf("Failed to close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Health check returned status %d, expected 200", resp.StatusCode)
 	}
 }
 
-// TestProxyIndex tests that the proxy index endpoint works
+// TestProxyIndex tests that the proxy index endpoint works.
 func TestProxyIndex(t *testing.T) {
 	t.Parallel()
 
@@ -231,7 +259,11 @@ func TestProxyIndex(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Index check failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Logf("Failed to close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Index check returned status %d, expected 200", resp.StatusCode)

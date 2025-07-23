@@ -20,8 +20,8 @@ clean-e2e:
 	@echo "Cleaning up existing e2e test containers and processes..."
 	@podman stop test-pypi-server tejedor-test-pypi tejedor-proxy 2>/dev/null || true
 	@podman rm -f test-pypi-server tejedor-test-pypi tejedor-proxy 2>/dev/null || true
-	@pkill -f "tejedor.*config.json" 2>/dev/null || true
-	@pkill -f "tejedor.*test-config.yaml" 2>/dev/null || true
+	@pgrep -f "tejedor.*config\.json" | xargs -r kill -9 2>/dev/null || true
+	@pgrep -f "tejedor.*test-config\.yaml" | xargs -r kill -9 2>/dev/null || true
 	@echo "✅ Cleanup complete - letting podman handle port forwarding cleanup"
 
 # Clean all containers and images
@@ -49,7 +49,8 @@ e2e-test-ci: clean-e2e
 	@echo "🚀 Starting E2E tests in CI mode..."
 	@cd e2e && ./run_tests.sh
 	@echo "🧹 Cleaning up test environment..."
-	@make clean-e2e
+	@podman stop tejedor-test-pypi tejedor-proxy 2>/dev/null || true
+	@podman rm -f tejedor-test-pypi tejedor-proxy 2>/dev/null || true
 	@echo "🎉 E2E tests completed!"
 
 # Run all CI checks locally (same as GitHub Actions)
