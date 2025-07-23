@@ -173,16 +173,28 @@ func (p *Proxy) HandleFile(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	// Extract file path from URL
-	// Expected format: /packages/{file_path}
+	// Expected formats: /packages/{file_path} or /{file_name}
 	pathParts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	if len(pathParts) < 2 || pathParts[0] != "packages" {
-		http.Error(w, "Invalid file path", http.StatusBadRequest)
-		return
-	}
 
-	filePath := strings.Join(pathParts[1:], "/")
-	if filePath == "" {
-		http.Error(w, "File path is required", http.StatusBadRequest)
+	var filePath string
+	switch {
+	case len(pathParts) >= 2 && pathParts[0] == "packages":
+		// Handle /packages/{file_path} format
+		filePath = strings.Join(pathParts[1:], "/")
+		// Check if we have a valid file path (not just empty or trailing slash)
+		if filePath == "" {
+			http.Error(w, "Invalid file path", http.StatusBadRequest)
+			return
+		}
+	case len(pathParts) == 1:
+		// Handle direct file requests like /{file_name}
+		filePath = pathParts[0]
+		if filePath == "" || filePath == "packages" {
+			http.Error(w, "Invalid file path", http.StatusBadRequest)
+			return
+		}
+	default:
+		http.Error(w, "Invalid file path", http.StatusBadRequest)
 		return
 	}
 
@@ -226,9 +238,16 @@ func (p *Proxy) HandleFile(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set(pypi.ResponseHeaderSource, sourceIndex)
 
 	// Construct the full file URL
-	fileURL := fileBaseURL + r.URL.Path
-	// Fix double slashes
-	fileURL = strings.Replace(fileURL, "//packages/", "/packages/", 1)
+	var fileURL string
+	if strings.HasPrefix(r.URL.Path, "/packages/") {
+		// For /packages/ paths, use the original logic
+		fileURL = fileBaseURL + r.URL.Path
+		// Fix double slashes
+		fileURL = strings.Replace(fileURL, "//packages/", "/packages/", 1)
+	} else {
+		// For direct file requests, construct the URL properly
+		fileURL = fileBaseURL + "/" + filePath
+	}
 
 	// Proxy the file from the determined source
 	err = p.client.ProxyFile(ctx, fileURL, w, r.Method)
