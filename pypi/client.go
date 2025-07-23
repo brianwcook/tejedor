@@ -82,7 +82,15 @@ func (c *HTTPClient) PackageExists(ctx context.Context, baseURL, packageName str
 		return false, fmt.Errorf("error creating request: %w", err)
 	}
 
-	resp, err := c.httpClient.Do(req)
+	// Create a client that doesn't follow redirects for package existence checks
+	noRedirectClient := &http.Client{
+		Timeout: 30 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	resp, err := noRedirectClient.Do(req)
 	if err != nil {
 		return false, fmt.Errorf("error making request: %w", err)
 	}
@@ -115,6 +123,11 @@ func (c *HTTPClient) PackageExists(ctx context.Context, baseURL, packageName str
 			}
 		}()
 		return getResp.StatusCode == http.StatusOK, nil
+	}
+	// Treat 3xx redirects as "package not found" for private servers
+	// This prevents false positives when private servers redirect to public PyPI
+	if resp.StatusCode >= 300 && resp.StatusCode < 400 {
+		return false, nil
 	}
 	// Package does not exist
 	return false, nil

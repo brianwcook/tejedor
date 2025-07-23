@@ -42,8 +42,8 @@ func (p *Proxy) filterWheelFiles(htmlContent []byte) []byte {
 	content := string(htmlContent)
 
 	// Regular expression to match wheel file links
-	// Matches <a href="...">...whl</a> patterns
-	wheelPattern := regexp.MustCompile(`<a[^>]*href="[^"]*\.whl[^"]*"[^>]*>.*?\.whl</a>\s*<br\s*/>\s*`)
+	// Matches <a href="...">...whl</a> patterns with any additional attributes
+	wheelPattern := regexp.MustCompile(`<a[^>]*href="[^"]*\.whl[^"]*"[^>]*>.*?\.whl</a>\s*<br\s*/>?\s*`)
 
 	// Remove wheel file links
 	filteredContent := wheelPattern.ReplaceAllString(content, "")
@@ -211,7 +211,7 @@ func (p *Proxy) HandleFile(w http.ResponseWriter, r *http.Request) {
 	case privateExists:
 		// If package exists in private index, serve from there
 		sourceIndex = p.config.PrivatePyPIURL
-		fileBaseURL = strings.TrimSuffix(p.config.PrivatePyPIURL, "/simple")
+		fileBaseURL = strings.TrimSuffix(strings.TrimSuffix(p.config.PrivatePyPIURL, "/simple/"), "/simple")
 	case publicExists:
 		// If package only exists in public index, serve from there
 		sourceIndex = p.config.PublicPyPIURL

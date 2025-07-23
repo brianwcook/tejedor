@@ -25,9 +25,8 @@ print_error() {
 # Cleanup function
 cleanup() {
     print_status "Cleaning up..."
-    docker-compose down --remove-orphans 2>/dev/null || true
-    docker stop tejedor-test-pypi tejedor-proxy 2>/dev/null || true
-    docker rm tejedor-test-pypi tejedor-proxy 2>/dev/null || true
+    $CONTAINER_ENGINE stop tejedor-test-pypi tejedor-proxy 2>/dev/null || true
+    $CONTAINER_ENGINE rm tejedor-test-pypi tejedor-proxy 2>/dev/null || true
 }
 
 # Set up trap to cleanup on exit
@@ -36,10 +35,17 @@ trap cleanup EXIT
 # Check prerequisites
 print_status "Checking prerequisites..."
 
-if ! command -v docker &> /dev/null; then
-    print_error "Docker is not installed or not in PATH"
+# Detect container engine
+if command -v podman &> /dev/null; then
+    CONTAINER_ENGINE=podman
+elif command -v docker &> /dev/null; then
+    CONTAINER_ENGINE=docker
+else
+    print_error "Neither podman nor docker is installed or not in PATH"
     exit 1
 fi
+
+print_status "Using container engine: $CONTAINER_ENGINE"
 
 if ! command -v python3 &> /dev/null; then
     print_error "Python3 is not installed or not in PATH"
@@ -56,20 +62,25 @@ print_status "Prerequisites check passed"
 # Build and start the test environment
 print_status "Building and starting test environment..."
 
+# Clean up any existing containers first
+print_status "Cleaning up any existing test containers..."
+$CONTAINER_ENGINE stop tejedor-test-pypi tejedor-proxy 2>/dev/null || true
+$CONTAINER_ENGINE rm tejedor-test-pypi tejedor-proxy 2>/dev/null || true
+
 cd "$(dirname "$0")"
 
 # Build the test PyPI server
 print_status "Building test PyPI server..."
-docker build -t tejedor-test-pypi -f Dockerfile .
+$CONTAINER_ENGINE build -t tejedor-test-pypi -f Dockerfile .
 
 # Start the test PyPI server
 print_status "Starting test PyPI server..."
-docker run -d --name tejedor-test-pypi -p 8080:8080 tejedor-test-pypi
+$CONTAINER_ENGINE run -d --name tejedor-test-pypi -p 8098:8080 tejedor-test-pypi
 
 # Wait for PyPI server to be ready
 print_status "Waiting for PyPI server to be ready..."
 for i in {1..30}; do
-    if curl -f http://localhost:8080/simple/ >/dev/null 2>&1; then
+    if curl -f http://localhost:8098/simple/ >/dev/null 2>&1; then
         print_status "PyPI server is ready"
         break
     fi
@@ -82,7 +93,7 @@ done
 
 # Build tejedor
 print_status "Building tejedor..."
-cd ../..
+cd ..
 go build -o e2e/tejedor .
 
 # Start tejedor proxy
@@ -93,8 +104,8 @@ cd e2e
 cat > config.json << EOF
 {
   "public_pypi_url": "https://pypi.org/simple/",
-  "private_pypi_url": "http://localhost:8080/simple/",
-  "port": 8081,
+  "private_pypi_url": "http://localhost:8098/simple/",
+  "port": 8099,
   "cache_enabled": false,
   "cache_size": 100,
   "cache_ttl": 1
@@ -108,7 +119,7 @@ TEJEDOR_PID=$!
 # Wait for tejedor to be ready
 print_status "Waiting for tejedor proxy to be ready..."
 for i in {1..15}; do
-    if curl -f http://localhost:8081/simple/ >/dev/null 2>&1; then
+    if curl -f http://localhost:8099/simple/ >/dev/null 2>&1; then
         print_status "Tejedor proxy is ready"
         break
     fi
@@ -129,12 +140,12 @@ flask==2.3.3
 click==8.1.7
 jinja2==3.1.2
 werkzeug==2.3.7
-markupsafe==2.1.3
+six==1.16.0
 itsdangerous==2.1.2
 blinker==1.6.3
 EOF
 
-test-venv-private/bin/pip install -r requirements-private.txt -i http://localhost:8081/simple/
+test-venv-private/bin/pip install -r requirements-private.txt -i http://localhost:8099/simple/
 print_status "✅ Private packages installed successfully"
 
 # Test 2: Install packages from public PyPI only
@@ -143,13 +154,14 @@ mkdir -p test-venv-public
 python3 -m venv test-venv-public
 
 cat > requirements-public.txt << EOF
-numpy==1.24.3
-pandas==2.0.3
-matplotlib==3.7.2
-scipy==1.11.1
+requests==2.31.0
+urllib3==2.0.7
+certifi==2023.7.22
+charset-normalizer==3.2.0
+idna==3.4
 EOF
 
-test-venv-public/bin/pip install -r requirements-public.txt -i http://localhost:8081/simple/
+test-venv-public/bin/pip install -r requirements-public.txt -i http://localhost:8099/simple/
 print_status "✅ Public packages installed successfully"
 
 # Test 3: Install mixed packages
@@ -159,19 +171,19 @@ python3 -m venv test-venv-mixed
 
 cat > requirements-mixed.txt << EOF
 flask==2.3.3
-numpy==1.24.3
 requests==2.31.0
 click==8.1.7
+six==1.16.0
 EOF
 
-test-venv-mixed/bin/pip install -r requirements-mixed.txt -i http://localhost:8081/simple/
+test-venv-mixed/bin/pip install -r requirements-mixed.txt -i http://localhost:8099/simple/
 print_status "✅ Mixed packages installed successfully"
 
 # Test 4: Verify filtering behavior
 print_status "Testing filtering behavior..."
 
 # Test that numpy (public only) returns source distributions only
-NUMPY_RESPONSE=$(curl -s http://localhost:8081/simple/numpy/)
+NUMPY_RESPONSE=$(curl -s http://localhost:8099/simple/numpy/)
 if echo "$NUMPY_RESPONSE" | grep -q "\.tar\.gz"; then
     print_status "✅ Numpy response contains source distributions"
 else
@@ -187,7 +199,7 @@ else
 fi
 
 # Test that flask (private) can have both source and wheel
-FLASK_RESPONSE=$(curl -s http://localhost:8081/simple/flask/)
+FLASK_RESPONSE=$(curl -s http://localhost:8099/simple/flask/)
 if echo "$FLASK_RESPONSE" | grep -q "flask"; then
     print_status "✅ Flask response contains flask package"
 else

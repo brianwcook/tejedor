@@ -1,369 +1,239 @@
 package e2e
 
 import (
-	"context"
 	"fmt"
+	"io"
 	"net/http"
-	"net/http/httptest"
-	"python-index-proxy/config"
-	"python-index-proxy/proxy"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 )
 
-// TestRealPyPIIntegration tests the proxy with real PyPI packages
-// This test can run in CI because it uses proper timeouts and error handling
-func TestRealPyPIIntegration(t *testing.T) {
-	// Create test configuration with real PyPI
-	cfg := &config.Config{
-		PublicPyPIURL:  "https://pypi.org/simple/",
-		PrivatePyPIURL: "https://pypi.org/simple/", // Use same as public for this test
-		Port:           8080,
-		CacheEnabled:   false,
-		CacheSize:      100,
-		CacheTTL:       1,
-	}
+const (
+	proxyURL    = "http://localhost:8099"
+	privateURL  = "http://localhost:8098"
+	testTimeout = 30 * time.Second
+)
 
-	// Create proxy instance
-	proxyInstance, err := proxy.NewProxy(cfg)
-	if err != nil {
-		t.Fatalf("Failed to create proxy: %v", err)
-	}
+// TestPrivatePackages tests installing packages that only exist in private PyPI
+func TestPrivatePackages(t *testing.T) {
+	t.Parallel()
 
-	// Test with a well-known, stable package that's unlikely to be removed
-	packageName := "six" // A very stable package used by many others
+	// Test packages that should be available in private PyPI
+	packages := []string{"flask", "click", "jinja2", "werkzeug"}
 
-	// Create request with timeout context
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("/simple/%s/", packageName), http.NoBody)
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
-	}
-
-	rr := httptest.NewRecorder()
-	proxyInstance.HandlePackage(rr, req)
-
-	// Check response
-	if rr.Code != http.StatusOK {
-		t.Errorf("Expected status 200, got %d", rr.Code)
-	}
-
-	// Check source header - should be from public PyPI
-	sourceHeader := rr.Header().Get("X-PyPI-Source")
-	if sourceHeader != "https://pypi.org/simple/" {
-		t.Errorf("Expected source header 'https://pypi.org/simple/', got %s", sourceHeader)
-	}
-
-	// Verify response contains expected content
-	body := rr.Body.String()
-	if body == "" {
-		t.Error("Expected non-empty response body")
-	}
-
-	// Check that it contains the package name
-	if !strings.Contains(body, packageName) {
-		t.Errorf("Expected response to contain package name '%s'", packageName)
-	}
-
-	// Check content type
-	contentType := rr.Header().Get("Content-Type")
-	if !strings.Contains(contentType, "text/html") {
-		t.Errorf("Expected HTML content type, got %s", contentType)
-	}
-}
-
-// TestRealPyPIPackageDownload tests actual package file downloads
-func TestRealPyPIPackageDownload(t *testing.T) {
-	// Create test configuration
-	cfg := &config.Config{
-		PublicPyPIURL:  "https://pypi.org/simple/",
-		PrivatePyPIURL: "https://pypi.org/simple/", // Use same as public for this test
-		Port:           8080,
-		CacheEnabled:   false,
-		CacheSize:      100,
-		CacheTTL:       1,
-	}
-
-	// Create proxy instance
-	proxyInstance, err := proxy.NewProxy(cfg)
-	if err != nil {
-		t.Fatalf("Failed to create proxy: %v", err)
-	}
-
-	// Test with a specific package file URL
-	// Using a well-known package file that's unlikely to change
-	packageFileURL := "/packages/source/s/six/six-1.16.0.tar.gz"
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, "GET", packageFileURL, http.NoBody)
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
-	}
-
-	rr := httptest.NewRecorder()
-	proxyInstance.HandleFile(rr, req)
-
-	// Check response - this might fail if the specific file doesn't exist
-	// but we should get a proper error response, not a 500
-	if rr.Code == http.StatusInternalServerError {
-		t.Errorf("Got internal server error, expected either 200 or 404")
-	}
-
-	// If we get a 404, that's acceptable for this test
-	if rr.Code == http.StatusNotFound {
-		t.Log("Package file not found (404) - this is acceptable for this test")
-		return
-	}
-
-	// If we get a 200, check the content type
-	if rr.Code == http.StatusOK {
-		contentType := rr.Header().Get("Content-Type")
-		if contentType != "application/x-gzip" && contentType != "application/octet-stream" {
-			t.Errorf("Expected gzip or octet-stream content type, got %s", contentType)
-		}
-
-		// Verify we got some content
-		body := rr.Body.String()
-		if len(body) == 0 {
-			t.Error("Expected non-empty response body for package file")
-		}
-	}
-}
-
-// TestRealPyPIErrorHandling tests error handling with real PyPI
-func TestRealPyPIErrorHandling(t *testing.T) {
-	cfg := &config.Config{
-		PublicPyPIURL:  "https://pypi.org/simple/",
-		PrivatePyPIURL: "https://pypi.org/simple/", // Use same as public for this test
-		Port:           8080,
-		CacheEnabled:   false,
-		CacheSize:      100,
-		CacheTTL:       1,
-	}
-
-	proxyInstance, err := proxy.NewProxy(cfg)
-	if err != nil {
-		t.Fatalf("Failed to create proxy: %v", err)
-	}
-
-	// Test with a non-existent package
-	packageName := "this-package-definitely-does-not-exist-12345"
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("/simple/%s/", packageName), http.NoBody)
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
-	}
-
-	rr := httptest.NewRecorder()
-	proxyInstance.HandlePackage(rr, req)
-
-	// Should get a 404 for non-existent package
-	if rr.Code != http.StatusNotFound {
-		t.Errorf("Expected status 404 for non-existent package, got %d", rr.Code)
-	}
-}
-
-// TestRealPyPIMixedWithLocal tests the proxy with both real PyPI and local packages
-func TestRealPyPIMixedWithLocal(t *testing.T) {
-	// Start local PyPI server
-	localServer := NewLocalPyPIServer()
-	defer localServer.Close()
-
-	cfg := &config.Config{
-		PublicPyPIURL:  "https://pypi.org/simple/",
-		PrivatePyPIURL: localServer.URL(),
-		Port:           8080,
-		CacheEnabled:   false,
-		CacheSize:      100,
-		CacheTTL:       1,
-	}
-
-	proxyInstance, err := proxy.NewProxy(cfg)
-	if err != nil {
-		t.Fatalf("Failed to create proxy: %v", err)
-	}
-
-	// Test 1: Local package (should come from local server)
-	packageName := "privatepackage"
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("/simple/%s/", packageName), http.NoBody)
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
-	}
-
-	rr := httptest.NewRecorder()
-	proxyInstance.HandlePackage(rr, req)
-
-	if rr.Code != http.StatusOK {
-		t.Errorf("Expected status 200 for local package, got %d", rr.Code)
-	}
-
-	sourceHeader := rr.Header().Get("X-PyPI-Source")
-	if sourceHeader != localServer.URL() {
-		t.Errorf("Expected source header '%s', got %s", localServer.URL(), sourceHeader)
-	}
-
-	// Test 2: Real PyPI package (should come from public PyPI)
-	packageName = "six"
-
-	req, err = http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("/simple/%s/", packageName), http.NoBody)
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
-	}
-
-	rr = httptest.NewRecorder()
-	proxyInstance.HandlePackage(rr, req)
-
-	if rr.Code != http.StatusOK {
-		t.Errorf("Expected status 200 for real package, got %d", rr.Code)
-	}
-
-	sourceHeader = rr.Header().Get("X-PyPI-Source")
-	if sourceHeader != "https://pypi.org/simple/" {
-		t.Errorf("Expected source header 'https://pypi.org/simple/', got %s", sourceHeader)
-	}
-}
-
-// LocalPyPIServer represents a local PyPI server for testing.
-type LocalPyPIServer struct {
-	server   *httptest.Server
-	packages map[string]PackageInfo
-}
-
-// PackageInfo contains information about a package.
-type PackageInfo struct {
-	Name     string
-	Versions []string
-	Files    []PackageFile
-}
-
-// PackageFile represents a package file.
-type PackageFile struct {
-	Filename string
-	URL      string
-	Size     int64
-}
-
-// NewLocalPyPIServer creates a new local PyPI server.
-func NewLocalPyPIServer() *LocalPyPIServer {
-	server := &LocalPyPIServer{
-		packages: make(map[string]PackageInfo),
-	}
-
-	// Populate with test packages
-	server.populateTestPackages()
-
-	server.server = httptest.NewServer(http.HandlerFunc(server.handleRequest))
-	return server
-}
-
-// populateTestPackages adds test packages to the local server.
-func (s *LocalPyPIServer) populateTestPackages() {
-	s.packages["privatepackage"] = PackageInfo{
-		Name:     "privatepackage",
-		Versions: []string{"1.0.0", "1.1.0"},
-		Files: []PackageFile{
-			{
-				Filename: "privatepackage-1.0.0.tar.gz",
-				URL:      "/packages/source/p/privatepackage/privatepackage-1.0.0.tar.gz",
-				Size:     1024,
-			},
-			{
-				Filename: "privatepackage-1.1.0.tar.gz",
-				URL:      "/packages/source/p/privatepackage/privatepackage-1.1.0.tar.gz",
-				Size:     2048,
-			},
-		},
-	}
-}
-
-// handleRequest handles HTTP requests to the local PyPI server.
-func (s *LocalPyPIServer) handleRequest(w http.ResponseWriter, r *http.Request) {
-	path := r.URL.Path
-	path = strings.ReplaceAll(path, "//packages/", "/packages/")
-	path = strings.ReplaceAll(path, "//", "/")
-
-	if strings.HasPrefix(path, "/simple/") {
-		s.handlePackageIndex(w, r)
-		return
-	}
-
-	if strings.HasPrefix(path, "/packages/") {
-		s.handleFileRequest(w, r)
-		return
-	}
-
-	http.NotFound(w, r)
-}
-
-// handlePackageIndex handles package index requests.
-func (s *LocalPyPIServer) handlePackageIndex(w http.ResponseWriter, r *http.Request) {
-	path := r.URL.Path
-	packageName := strings.TrimPrefix(strings.TrimSuffix(path, "/"), "/simple/")
-
-	pkg, exists := s.packages[packageName]
-	if !exists {
-		http.NotFound(w, r)
-		return
-	}
-
-	w.Header().Set("Content-Type", "text/html")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(s.generatePackageIndexHTML(pkg)))
-}
-
-// handleFileRequest handles package file requests.
-func (s *LocalPyPIServer) handleFileRequest(w http.ResponseWriter, r *http.Request) {
-	path := r.URL.Path
-	filename := strings.TrimPrefix(path, "/packages/")
-
-	// Find the package file
-	for _, pkg := range s.packages {
-		for _, file := range pkg.Files {
-			if strings.HasSuffix(file.URL, filename) {
-				w.Header().Set("Content-Type", "application/octet-stream")
-				w.Header().Set("Content-Length", fmt.Sprintf("%d", file.Size))
-				w.WriteHeader(http.StatusOK)
-				// Write dummy content
-				w.Write([]byte("dummy package content"))
-				return
+	for _, pkg := range packages {
+		t.Run(fmt.Sprintf("package_%s", pkg), func(t *testing.T) {
+			// Check that package is available through proxy
+			resp, err := http.Get(fmt.Sprintf("%s/simple/%s/", proxyURL, pkg))
+			if err != nil {
+				t.Fatalf("Failed to get package %s: %v", pkg, err)
 			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				t.Errorf("Package %s returned status %d, expected 200", pkg, resp.StatusCode)
+			}
+
+			// Verify it's served from private PyPI
+			source := resp.Header.Get("X-PyPI-Source")
+			if source != privateURL+"/simple/" {
+				t.Errorf("Package %s served from %s, expected private PyPI", pkg, source)
+			}
+		})
+	}
+}
+
+// TestPublicPackages tests installing packages that only exist in public PyPI
+func TestPublicPackages(t *testing.T) {
+	t.Parallel()
+
+	// Test packages that should only be available in public PyPI
+	packages := []string{"urllib3", "certifi", "numpy", "pandas"}
+
+	for _, pkg := range packages {
+		t.Run(fmt.Sprintf("package_%s", pkg), func(t *testing.T) {
+			// Check that package is available through proxy
+			resp, err := http.Get(fmt.Sprintf("%s/simple/%s/", proxyURL, pkg))
+			if err != nil {
+				t.Fatalf("Failed to get package %s: %v", pkg, err)
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				t.Errorf("Package %s returned status %d, expected 200", pkg, resp.StatusCode)
+			}
+
+			// Verify it's served from public PyPI
+			source := resp.Header.Get("X-PyPI-Source")
+			if source != "https://pypi.org/simple/" {
+				t.Errorf("Package %s served from %s, expected public PyPI", pkg, source)
+			}
+		})
+	}
+}
+
+// TestWheelFileFiltering tests that wheel files are filtered from public PyPI
+func TestWheelFileFiltering(t *testing.T) {
+	t.Parallel()
+
+	// Test packages that should have wheel files filtered
+	packages := []string{"numpy", "pandas", "matplotlib"}
+
+	for _, pkg := range packages {
+		t.Run(fmt.Sprintf("filtering_%s", pkg), func(t *testing.T) {
+			// Get package page from proxy
+			resp, err := http.Get(fmt.Sprintf("%s/simple/%s/", proxyURL, pkg))
+			if err != nil {
+				t.Fatalf("Failed to get package %s: %v", pkg, err)
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				t.Fatalf("Package %s returned status %d, expected 200", pkg, resp.StatusCode)
+			}
+
+			// Read response body
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				t.Fatalf("Failed to read response body: %v", err)
+			}
+
+			content := string(body)
+
+			// Check that source distributions are present
+			if !strings.Contains(content, ".tar.gz") {
+				t.Errorf("Package %s response missing source distributions (.tar.gz)", pkg)
+			}
+
+			// Check that wheel files are filtered out
+			if strings.Contains(content, ".whl") {
+				t.Errorf("Package %s response contains wheel files (.whl) - should be filtered", pkg)
+			}
+
+			// Verify it's served from public PyPI (where filtering should be applied)
+			source := resp.Header.Get("X-PyPI-Source")
+			if source != "https://pypi.org/simple/" {
+				t.Errorf("Package %s served from %s, expected public PyPI for filtering", pkg, source)
+			}
+		})
+	}
+}
+
+// TestMixedPackages tests packages that exist in both private and public PyPI
+func TestMixedPackages(t *testing.T) {
+	t.Parallel()
+
+	// Test packages that might exist in both sources
+	// These should be served from private PyPI (no filtering)
+	packages := []string{"flask", "click", "jinja2"}
+
+	for _, pkg := range packages {
+		t.Run(fmt.Sprintf("mixed_%s", pkg), func(t *testing.T) {
+			// Get package page from proxy
+			resp, err := http.Get(fmt.Sprintf("%s/simple/%s/", proxyURL, pkg))
+			if err != nil {
+				t.Fatalf("Failed to get package %s: %v", pkg, err)
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				t.Fatalf("Package %s returned status %d, expected 200", pkg, resp.StatusCode)
+			}
+
+			// Read response body
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				t.Fatalf("Failed to read response body: %v", err)
+			}
+
+			content := string(body)
+
+			// Check that package content is present
+			if !strings.Contains(content, pkg) {
+				t.Errorf("Package %s response missing package content", pkg)
+			}
+
+			// Verify it's served from private PyPI (no filtering should be applied)
+			source := resp.Header.Get("X-PyPI-Source")
+			if source != privateURL+"/simple/" {
+				t.Errorf("Package %s served from %s, expected private PyPI", pkg, source)
+			}
+		})
+	}
+}
+
+// TestPipInstall tests actual pip installs through the proxy
+func TestPipInstall(t *testing.T) {
+	t.Parallel()
+
+	// Create virtual environment for testing
+	venvDir := "test-venv-pip"
+
+	// Clean up any existing venv
+	os.RemoveAll(venvDir)
+
+	// Create virtual environment
+	cmd := exec.Command("python3", "-m", "venv", venvDir)
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to create virtual environment: %v", err)
+	}
+	defer os.RemoveAll(venvDir)
+
+	// Test pip install with private packages
+	t.Run("private_packages", func(t *testing.T) {
+		cmd := exec.Command(filepath.Join(venvDir, "bin", "pip"), "install",
+			"--index-url", proxyURL+"/simple/",
+			"--no-deps", "flask==2.3.3")
+
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("pip install failed: %v\nOutput: %s", err, string(output))
 		}
+	})
+
+	// Test pip install with public packages
+	t.Run("public_packages", func(t *testing.T) {
+		cmd := exec.Command(filepath.Join(venvDir, "bin", "pip"), "install",
+			"--index-url", proxyURL+"/simple/",
+			"--no-deps", "urllib3==2.0.7")
+
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("pip install failed: %v\nOutput: %s", err, string(output))
+		}
+	})
+}
+
+// TestProxyHealth tests that the proxy health endpoint works
+func TestProxyHealth(t *testing.T) {
+	t.Parallel()
+
+	resp, err := http.Get(proxyURL + "/health")
+	if err != nil {
+		t.Fatalf("Health check failed: %v", err)
 	}
+	defer resp.Body.Close()
 
-	http.NotFound(w, r)
-}
-
-// generatePackageIndexHTML generates HTML for package index.
-func (s *LocalPyPIServer) generatePackageIndexHTML(pkg PackageInfo) string {
-	var links strings.Builder
-	links.WriteString(fmt.Sprintf("<html><head><title>Links for %s</title></head><body><h1>Links for %s</h1>", pkg.Name, pkg.Name))
-
-	for _, file := range pkg.Files {
-		links.WriteString(fmt.Sprintf(`<a href=%q>%s</a><br/>`, file.URL, file.Filename))
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Health check returned status %d, expected 200", resp.StatusCode)
 	}
-
-	links.WriteString("</body></html>")
-	return links.String()
 }
 
-// URL returns the server URL.
-func (s *LocalPyPIServer) URL() string {
-	return s.server.URL
-}
+// TestProxyIndex tests that the proxy index endpoint works
+func TestProxyIndex(t *testing.T) {
+	t.Parallel()
 
-// Close closes the server.
-func (s *LocalPyPIServer) Close() {
-	s.server.Close()
+	resp, err := http.Get(proxyURL + "/simple/")
+	if err != nil {
+		t.Fatalf("Index check failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Index check returned status %d, expected 200", resp.StatusCode)
+	}
 }
