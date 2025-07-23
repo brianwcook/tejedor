@@ -47,7 +47,7 @@ func (m *MockPyPIClient) PackageExists(_ context.Context, baseURL, packageName s
 	return m.privateExists[packageName], nil
 }
 
-func (m *MockPyPIClient) GetPackagePage(_ context.Context, _ string, packageName string) ([]byte, error) {
+func (m *MockPyPIClient) GetPackagePage(_ context.Context, _, packageName string) ([]byte, error) {
 	if m.shouldError {
 		return nil, fmt.Errorf("mock error")
 	}

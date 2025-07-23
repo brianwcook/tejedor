@@ -200,7 +200,7 @@ func (s *LocalPyPIServer) generatePackageIndexHTML(pkg PackageInfo) string {
 	var links strings.Builder
 
 	for _, file := range pkg.Files {
-		links.WriteString(fmt.Sprintf(`<a href="%s">%s</a><br/>`, file.URL, file.Filename))
+		links.WriteString(fmt.Sprintf(`<a href=%q>%s</a><br/>`, file.URL, file.Filename))
 	}
 
 	return fmt.Sprintf(`<!DOCTYPE html>
