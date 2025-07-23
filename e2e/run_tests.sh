@@ -33,7 +33,7 @@ SETUP_PID=$!
 
 # Wait for environment to be ready
 print_status "Waiting for environment to be ready..."
-sleep 15
+sleep 45
 
 # Check if proxy is running
 if ! curl -f http://localhost:8099/simple/ >/dev/null 2>&1; then
