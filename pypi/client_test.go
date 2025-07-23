@@ -45,7 +45,7 @@ func TestPackageExists(t *testing.T) {
 
 func TestPackageNotExists(t *testing.T) {
 	// Create test server that returns 404
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	}))
 	defer server.Close()
@@ -97,7 +97,7 @@ func TestGetPackagePage(t *testing.T) {
 
 func TestGetPackagePageNotFound(t *testing.T) {
 	// Create test server that returns 404
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	}))
 	defer server.Close()
@@ -117,7 +117,7 @@ func TestGetPackageFile(t *testing.T) {
 	expectedContent := "package file content"
 
 	// Create test server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/octet-stream")
 		if _, err := w.Write([]byte(expectedContent)); err != nil {
 			t.Errorf("Error writing response: %v", err)
@@ -141,7 +141,7 @@ func TestGetPackageFile(t *testing.T) {
 
 func TestGetPackageFileNotFound(t *testing.T) {
 	// Create test server that returns 404
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	}))
 	defer server.Close()
@@ -161,7 +161,7 @@ func TestProxyFile(t *testing.T) {
 	expectedHeader := "test-header-value"
 
 	// Create test server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/octet-stream")
 		w.Header().Set("X-Test-Header", expectedHeader)
 		if _, err := w.Write([]byte(expectedContent)); err != nil {
@@ -198,7 +198,7 @@ func TestProxyFile(t *testing.T) {
 
 func TestProxyFileNotFound(t *testing.T) {
 	// Create test server that returns 404
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	}))
 	defer server.Close()
@@ -240,7 +240,7 @@ func TestPackageNameNormalization(t *testing.T) {
 }
 
 func TestPackageExistsWithError(t *testing.T) {
-	client := &Client{
+	client := &HTTPClient{
 		httpClient: &http.Client{},
 	}
 
@@ -255,7 +255,7 @@ func TestPackageExistsWithError(t *testing.T) {
 }
 
 func TestGetPackagePageWithError(t *testing.T) {
-	client := &Client{
+	client := &HTTPClient{
 		httpClient: &http.Client{},
 	}
 
@@ -270,7 +270,7 @@ func TestGetPackagePageWithError(t *testing.T) {
 }
 
 func TestGetPackageFileWithError(t *testing.T) {
-	client := &Client{
+	client := &HTTPClient{
 		httpClient: &http.Client{},
 	}
 
@@ -285,7 +285,7 @@ func TestGetPackageFileWithError(t *testing.T) {
 }
 
 func TestProxyFileWithError(t *testing.T) {
-	client := &Client{
+	client := &HTTPClient{
 		httpClient: &http.Client{},
 	}
 

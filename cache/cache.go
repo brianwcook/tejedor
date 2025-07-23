@@ -1,3 +1,5 @@
+// Package cache provides an LRU cache implementation for storing package information
+// and HTML content for the PyPI proxy.
 package cache
 
 import (

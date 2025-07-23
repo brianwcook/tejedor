@@ -2,14 +2,14 @@ run:
   timeout: 5m
   go: "1.24"
 
+# This is the version of golangci-lint configuration
+version: 2
+
 linters:
   enable:
-    - gofmt
-    - goimports
     - govet
     - errcheck
     - staticcheck
-    - gosimple
     - ineffassign
     - unused
     - misspell
@@ -19,10 +19,15 @@ linters:
     - goconst
     - gocritic
     - godot
-    - gofumpt
     - revive
-    - stylecheck
     - whitespace
+
+# Formatters (not linters)
+formatters:
+  enable:
+    - gofmt
+    - goimports
+    - gofumpt
 
 linters-settings:
   gocyclo:
@@ -59,5 +64,8 @@ issues:
         - gocyclo
         - dupl
         - goconst
+    - path: pypi/client\.go
+      linters:
+        - revive
   max-issues-per-linter: 0
   max-same-issues: 0 

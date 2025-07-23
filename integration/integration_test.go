@@ -16,27 +16,27 @@ func isCI() bool {
 	return os.Getenv("CI") == "true"
 }
 
-// LocalPyPIServer represents a local PyPI server for testing
+// LocalPyPIServer represents a local PyPI server for testing.
 type LocalPyPIServer struct {
 	server   *httptest.Server
 	packages map[string]PackageInfo
 }
 
-// PackageInfo contains information about a package
+// PackageInfo contains information about a package.
 type PackageInfo struct {
 	Name     string
 	Versions []string
 	Files    []PackageFile
 }
 
-// PackageFile represents a package file
+// PackageFile represents a package file.
 type PackageFile struct {
 	Filename string
 	URL      string
 	Size     int64
 }
 
-// NewLocalPyPIServer creates a new local PyPI server
+// NewLocalPyPIServer creates a new local PyPI server.
 func NewLocalPyPIServer() *LocalPyPIServer {
 	server := &LocalPyPIServer{
 		packages: make(map[string]PackageInfo),
@@ -49,7 +49,7 @@ func NewLocalPyPIServer() *LocalPyPIServer {
 	return server
 }
 
-// populateTestPackages adds test packages to the local server
+// populateTestPackages adds test packages to the local server.
 func (s *LocalPyPIServer) populateTestPackages() {
 	// Add packages that exist only in our local server (simulating private packages)
 	s.packages["privatepackage"] = PackageInfo{
@@ -87,7 +87,7 @@ func (s *LocalPyPIServer) populateTestPackages() {
 	}
 }
 
-// handleRequest handles HTTP requests to the local PyPI server
+// handleRequest handles HTTP requests to the local PyPI server.
 func (s *LocalPyPIServer) handleRequest(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
 
@@ -112,7 +112,7 @@ func (s *LocalPyPIServer) handleRequest(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusNotFound)
 }
 
-// handlePackageIndex handles requests for package index pages
+// handlePackageIndex handles requests for package index pages.
 func (s *LocalPyPIServer) handlePackageIndex(w http.ResponseWriter, r *http.Request) {
 	// Extract package name from path /simple/{package}/
 	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
@@ -141,10 +141,13 @@ func (s *LocalPyPIServer) handlePackageIndex(w http.ResponseWriter, r *http.Requ
 
 	w.Header().Set("Content-Type", "text/html")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(html))
+	if _, err := w.Write([]byte(html)); err != nil {
+		// Log error but don't fail the test
+		_ = err // explicitly ignore error
+	}
 }
 
-// handleFileRequest handles requests for package files
+// handleFileRequest handles requests for package files.
 func (s *LocalPyPIServer) handleFileRequest(w http.ResponseWriter, r *http.Request) {
 	// Extract package name from path /packages/source/p/{package}/{filename}
 	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
@@ -186,10 +189,13 @@ func (s *LocalPyPIServer) handleFileRequest(w http.ResponseWriter, r *http.Reque
 
 	// Generate mock file content
 	content := fmt.Sprintf("Mock content for %s (size: %d bytes)", filename, fileInfo.Size)
-	w.Write([]byte(content))
+	if _, err := w.Write([]byte(content)); err != nil {
+		// Log error but don't fail the test
+		_ = err // explicitly ignore error
+	}
 }
 
-// generatePackageIndexHTML generates HTML for a package index page
+// generatePackageIndexHTML generates HTML for a package index page.
 func (s *LocalPyPIServer) generatePackageIndexHTML(pkg PackageInfo) string {
 	var links strings.Builder
 
@@ -209,12 +215,12 @@ func (s *LocalPyPIServer) generatePackageIndexHTML(pkg PackageInfo) string {
 </html>`, pkg.Name, pkg.Name, links.String())
 }
 
-// URL returns the base URL of the local server
+// URL returns the base URL of the local server.
 func (s *LocalPyPIServer) URL() string {
 	return s.server.URL + "/simple"
 }
 
-// Close closes the local server
+// Close closes the local server.
 func (s *LocalPyPIServer) Close() {
 	s.server.Close()
 }

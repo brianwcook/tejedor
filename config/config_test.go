@@ -34,18 +34,38 @@ func TestDefaultConfig(t *testing.T) {
 
 func TestLoadConfigFromEnvironment(t *testing.T) {
 	// Set environment variables
-	os.Setenv("PYPI_PROXY_PRIVATE_PYPI_URL", "https://test.example.com/simple/")
-	os.Setenv("PYPI_PROXY_PORT", "9090")
-	os.Setenv("PYPI_PROXY_CACHE_ENABLED", "false")
-	os.Setenv("PYPI_PROXY_CACHE_SIZE", "1000")
-	os.Setenv("PYPI_PROXY_CACHE_TTL_HOURS", "6")
+	if err := os.Setenv("PYPI_PROXY_PRIVATE_PYPI_URL", "https://test.example.com/simple/"); err != nil {
+		t.Fatalf("Failed to set environment variable: %v", err)
+	}
+	if err := os.Setenv("PYPI_PROXY_PORT", "9090"); err != nil {
+		t.Fatalf("Failed to set environment variable: %v", err)
+	}
+	if err := os.Setenv("PYPI_PROXY_CACHE_ENABLED", "false"); err != nil {
+		t.Fatalf("Failed to set environment variable: %v", err)
+	}
+	if err := os.Setenv("PYPI_PROXY_CACHE_SIZE", "1000"); err != nil {
+		t.Fatalf("Failed to set environment variable: %v", err)
+	}
+	if err := os.Setenv("PYPI_PROXY_CACHE_TTL_HOURS", "6"); err != nil {
+		t.Fatalf("Failed to set environment variable: %v", err)
+	}
 
 	defer func() {
-		os.Unsetenv("PYPI_PROXY_PRIVATE_PYPI_URL")
-		os.Unsetenv("PYPI_PROXY_PORT")
-		os.Unsetenv("PYPI_PROXY_CACHE_ENABLED")
-		os.Unsetenv("PYPI_PROXY_CACHE_SIZE")
-		os.Unsetenv("PYPI_PROXY_CACHE_TTL_HOURS")
+		if err := os.Unsetenv("PYPI_PROXY_PRIVATE_PYPI_URL"); err != nil {
+			t.Errorf("Failed to unset environment variable: %v", err)
+		}
+		if err := os.Unsetenv("PYPI_PROXY_PORT"); err != nil {
+			t.Errorf("Failed to unset environment variable: %v", err)
+		}
+		if err := os.Unsetenv("PYPI_PROXY_CACHE_ENABLED"); err != nil {
+			t.Errorf("Failed to unset environment variable: %v", err)
+		}
+		if err := os.Unsetenv("PYPI_PROXY_CACHE_SIZE"); err != nil {
+			t.Errorf("Failed to unset environment variable: %v", err)
+		}
+		if err := os.Unsetenv("PYPI_PROXY_CACHE_TTL_HOURS"); err != nil {
+			t.Errorf("Failed to unset environment variable: %v", err)
+		}
 	}()
 
 	config, err := LoadConfig("")
@@ -76,7 +96,9 @@ func TestLoadConfigFromEnvironment(t *testing.T) {
 
 func TestLoadConfigMissingPrivateURL(t *testing.T) {
 	// Ensure no environment variable is set
-	os.Unsetenv("PYPI_PROXY_PRIVATE_PYPI_URL")
+	if err := os.Unsetenv("PYPI_PROXY_PRIVATE_PYPI_URL"); err != nil {
+		t.Fatalf("Failed to unset environment variable: %v", err)
+	}
 
 	_, err := LoadConfig("")
 	if err == nil {
@@ -90,7 +112,11 @@ func TestLoadConfigMissingPrivateURL(t *testing.T) {
 
 func TestCreateDefaultConfigFile(t *testing.T) {
 	tempFile := "test_config.yaml"
-	defer os.Remove(tempFile)
+	defer func() {
+		if err := os.Remove(tempFile); err != nil {
+			t.Errorf("Failed to remove temp file: %v", err)
+		}
+	}()
 
 	err := CreateDefaultConfigFile(tempFile)
 	if err != nil {
@@ -116,11 +142,21 @@ func TestCreateDefaultConfigFile(t *testing.T) {
 // TestLoadConfigWithInvalidEnvVars tests LoadConfig with invalid environment variable bindings.
 func TestLoadConfigWithInvalidEnvVars(t *testing.T) {
 	// Test with valid environment variables
-	os.Setenv("PYPI_PROXY_PRIVATE_PYPI_URL", "https://test-private-pypi.com/simple/")
-	os.Setenv("PYPI_PROXY_PORT", "9090")
-	os.Setenv("PYPI_PROXY_CACHE_ENABLED", "false")
-	os.Setenv("PYPI_PROXY_CACHE_SIZE", "5000")
-	os.Setenv("PYPI_PROXY_CACHE_TTL_HOURS", "6")
+	if err := os.Setenv("PYPI_PROXY_PRIVATE_PYPI_URL", "https://test-private-pypi.com/simple/"); err != nil {
+		t.Fatalf("Failed to set environment variable: %v", err)
+	}
+	if err := os.Setenv("PYPI_PROXY_PORT", "9090"); err != nil {
+		t.Fatalf("Failed to set environment variable: %v", err)
+	}
+	if err := os.Setenv("PYPI_PROXY_CACHE_ENABLED", "false"); err != nil {
+		t.Fatalf("Failed to set environment variable: %v", err)
+	}
+	if err := os.Setenv("PYPI_PROXY_CACHE_SIZE", "5000"); err != nil {
+		t.Fatalf("Failed to set environment variable: %v", err)
+	}
+	if err := os.Setenv("PYPI_PROXY_CACHE_TTL_HOURS", "6"); err != nil {
+		t.Fatalf("Failed to set environment variable: %v", err)
+	}
 
 	// Reset viper to ensure clean state
 	viper.Reset()
@@ -151,11 +187,21 @@ func TestLoadConfigWithInvalidEnvVars(t *testing.T) {
 	}
 
 	// Clean up
-	os.Unsetenv("PYPI_PROXY_PRIVATE_PYPI_URL")
-	os.Unsetenv("PYPI_PROXY_PORT")
-	os.Unsetenv("PYPI_PROXY_CACHE_ENABLED")
-	os.Unsetenv("PYPI_PROXY_CACHE_SIZE")
-	os.Unsetenv("PYPI_PROXY_CACHE_TTL_HOURS")
+	if err := os.Unsetenv("PYPI_PROXY_PRIVATE_PYPI_URL"); err != nil {
+		t.Errorf("Failed to unset environment variable: %v", err)
+	}
+	if err := os.Unsetenv("PYPI_PROXY_PORT"); err != nil {
+		t.Errorf("Failed to unset environment variable: %v", err)
+	}
+	if err := os.Unsetenv("PYPI_PROXY_CACHE_ENABLED"); err != nil {
+		t.Errorf("Failed to unset environment variable: %v", err)
+	}
+	if err := os.Unsetenv("PYPI_PROXY_CACHE_SIZE"); err != nil {
+		t.Errorf("Failed to unset environment variable: %v", err)
+	}
+	if err := os.Unsetenv("PYPI_PROXY_CACHE_TTL_HOURS"); err != nil {
+		t.Errorf("Failed to unset environment variable: %v", err)
+	}
 	viper.Reset()
 }
 
@@ -166,7 +212,11 @@ func TestLoadConfigWithConfigFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
-	defer os.Remove(tempFile.Name())
+	defer func() {
+		if err := os.Remove(tempFile.Name()); err != nil {
+			t.Errorf("Failed to remove temp file: %v", err)
+		}
+	}()
 
 	// Write test config to file
 	configContent := `
@@ -180,7 +230,9 @@ cache_ttl_hours: 6
 	if _, err := tempFile.WriteString(configContent); err != nil {
 		t.Fatalf("Failed to write config file: %v", err)
 	}
-	tempFile.Close()
+	if err := tempFile.Close(); err != nil {
+		t.Fatalf("Failed to close temp file: %v", err)
+	}
 
 	// Reset viper to ensure clean state
 	viper.Reset()
@@ -225,7 +277,11 @@ func TestLoadConfigWithInvalidConfigFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
-	defer os.Remove(tempFile.Name())
+	defer func() {
+		if err := os.Remove(tempFile.Name()); err != nil {
+			t.Errorf("Failed to remove temp file: %v", err)
+		}
+	}()
 
 	// Write invalid YAML to file
 	configContent := `
@@ -239,7 +295,9 @@ cache_ttl_hours: also_not_a_number
 	if _, err := tempFile.WriteString(configContent); err != nil {
 		t.Fatalf("Failed to write config file: %v", err)
 	}
-	tempFile.Close()
+	if err := tempFile.Close(); err != nil {
+		t.Fatalf("Failed to close temp file: %v", err)
+	}
 
 	// Reset viper to ensure clean state
 	viper.Reset()

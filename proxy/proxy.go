@@ -1,3 +1,5 @@
+// Package proxy provides the PyPI proxy server implementation that routes requests
+// between public and private PyPI repositories.
 package proxy
 
 import (
@@ -237,7 +239,7 @@ func (p *Proxy) HandleFile(w http.ResponseWriter, r *http.Request) {
 }
 
 // HandleIndex handles requests for the index page.
-func (p *Proxy) HandleIndex(w http.ResponseWriter, r *http.Request) {
+func (p *Proxy) HandleIndex(w http.ResponseWriter, _ *http.Request) {
 	// Return a simple index page
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set(pypi.ResponseHeaderSource, "proxy")
@@ -265,7 +267,7 @@ func (p *Proxy) HandleIndex(w http.ResponseWriter, r *http.Request) {
 }
 
 // HandleHealth handles health check requests and returns cache statistics.
-func (p *Proxy) HandleHealth(w http.ResponseWriter, r *http.Request) {
+func (p *Proxy) HandleHealth(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set(pypi.ResponseHeaderSource, "proxy")
 
