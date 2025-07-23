@@ -1,3 +1,4 @@
+// Package pypi provides a client for interacting with PyPI repositories.
 package pypi
 
 import (
@@ -20,6 +21,8 @@ const (
 )
 
 // PyPIClient defines the interface for PyPI client operations.
+//
+//nolint:revive // This interface name is intentionally descriptive and used throughout the codebase
 type PyPIClient interface {
 	PackageExists(ctx context.Context, baseURL, packageName string) (bool, error)
 	GetPackagePage(ctx context.Context, baseURL, packageName string) ([]byte, error)
@@ -27,17 +30,17 @@ type PyPIClient interface {
 	ProxyFile(ctx context.Context, fileURL string, w http.ResponseWriter, method string) error
 }
 
-// Client represents a PyPI client.
-type Client struct {
+// HTTPClient represents a PyPI client.
+type HTTPClient struct {
 	httpClient *http.Client
 }
 
-// Ensure Client implements PyPIClient interface.
-var _ PyPIClient = (*Client)(nil)
+// Ensure HTTPClient implements PyPIClient interface.
+var _ PyPIClient = (*HTTPClient)(nil)
 
 // NewClient creates a new PyPI client.
-func NewClient() *Client {
-	return &Client{
+func NewClient() *HTTPClient {
+	return &HTTPClient{
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -58,7 +61,7 @@ func joinURL(base, path string) (string, error) {
 }
 
 // PackageExists checks if a package exists in the specified index.
-func (c *Client) PackageExists(ctx context.Context, baseURL, packageName string) (bool, error) {
+func (c *HTTPClient) PackageExists(ctx context.Context, baseURL, packageName string) (bool, error) {
 	// Normalize the package name for URL
 	normalizedName := strings.ToLower(strings.ReplaceAll(packageName, "_", "-"))
 
@@ -79,11 +82,25 @@ func (c *Client) PackageExists(ctx context.Context, baseURL, packageName string)
 		return false, fmt.Errorf("error creating request: %w", err)
 	}
 
-	resp, err := c.httpClient.Do(req)
+	// Create a client that doesn't follow redirects for package existence checks
+	noRedirectClient := &http.Client{
+		Timeout: 30 * time.Second,
+		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	resp, err := noRedirectClient.Do(req)
 	if err != nil {
 		return false, fmt.Errorf("error making request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			// Log the error but don't fail the function
+			// This is a common pattern for defer close operations
+			_ = closeErr // explicitly ignore error
+		}
+	}()
 
 	if resp.StatusCode == http.StatusOK {
 		return true, nil
@@ -98,15 +115,26 @@ func (c *Client) PackageExists(ctx context.Context, baseURL, packageName string)
 		if err != nil {
 			return false, fmt.Errorf("error making GET request: %w", err)
 		}
-		defer getResp.Body.Close()
+		defer func() {
+			if closeErr := getResp.Body.Close(); closeErr != nil {
+				// Log the error but don't fail the function
+				// This is a common pattern for defer close operations
+				_ = closeErr // explicitly ignore error
+			}
+		}()
 		return getResp.StatusCode == http.StatusOK, nil
+	}
+	// Treat 3xx redirects as "package not found" for private servers
+	// This prevents false positives when private servers redirect to public PyPI
+	if resp.StatusCode >= 300 && resp.StatusCode < 400 {
+		return false, nil
 	}
 	// Package does not exist
 	return false, nil
 }
 
 // GetPackagePage retrieves the package page from the specified index.
-func (c *Client) GetPackagePage(ctx context.Context, baseURL, packageName string) ([]byte, error) {
+func (c *HTTPClient) GetPackagePage(ctx context.Context, baseURL, packageName string) ([]byte, error) {
 	// Normalize the package name for URL
 	normalizedName := strings.ToLower(strings.ReplaceAll(packageName, "_", "-"))
 
@@ -131,8 +159,13 @@ func (c *Client) GetPackagePage(ctx context.Context, baseURL, packageName string
 	if err != nil {
 		return nil, fmt.Errorf("error making request: %w", err)
 	}
-	defer resp.Body.Close()
-
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			// Log the error but don't fail the function
+			// This is a common pattern for defer close operations
+			_ = closeErr // explicitly ignore error
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("package not found: %s", packageName)
 	}
@@ -147,7 +180,7 @@ func (c *Client) GetPackagePage(ctx context.Context, baseURL, packageName string
 }
 
 // GetPackageFile retrieves a specific package file from the specified index.
-func (c *Client) GetPackageFile(ctx context.Context, fileURL string) ([]byte, error) {
+func (c *HTTPClient) GetPackageFile(ctx context.Context, fileURL string) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", fileURL, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("error creating request: %w", err)
@@ -157,8 +190,13 @@ func (c *Client) GetPackageFile(ctx context.Context, fileURL string) ([]byte, er
 	if err != nil {
 		return nil, fmt.Errorf("error making request: %w", err)
 	}
-	defer resp.Body.Close()
-
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			// Log the error but don't fail the function
+			// This is a common pattern for defer close operations
+			_ = closeErr // explicitly ignore error
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("file not found: %s", fileURL)
 	}
@@ -173,7 +211,7 @@ func (c *Client) GetPackageFile(ctx context.Context, fileURL string) ([]byte, er
 }
 
 // ProxyFile proxies a file from the specified URL to the response writer.
-func (c *Client) ProxyFile(ctx context.Context, fileURL string, w http.ResponseWriter, method string) error {
+func (c *HTTPClient) ProxyFile(ctx context.Context, fileURL string, w http.ResponseWriter, method string) error {
 	req, err := http.NewRequestWithContext(ctx, method, fileURL, http.NoBody)
 	if err != nil {
 		return fmt.Errorf("error creating request: %w", err)
@@ -183,8 +221,13 @@ func (c *Client) ProxyFile(ctx context.Context, fileURL string, w http.ResponseW
 	if err != nil {
 		return fmt.Errorf("error making request: %w", err)
 	}
-	defer resp.Body.Close()
-
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			// Log the error but don't fail the function
+			// This is a common pattern for defer close operations
+			_ = closeErr // explicitly ignore error
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("file not found: %s", fileURL)
 	}

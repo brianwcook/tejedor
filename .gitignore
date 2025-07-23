@@ -36,3 +36,8 @@ config.yml
 .Trashes
 ehthumbs.db
 Thumbs.db 
+
+pypi-proxy
+
+tejedor
+.pypi-proxy-linux-*

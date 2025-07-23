@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  test-pypi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    container_name: tejedor-test-pypi
+    environment:
+      - PYTHONUNBUFFERED=1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/simple/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  tejedor-proxy:
+    build:
+      context: ../..
+      dockerfile: e2e/Dockerfile.tejedor
+    ports:
+      - "8081:8081"
+    container_name: tejedor-proxy
+    depends_on:
+      test-pypi:
+        condition: service_healthy
+    environment:
+      - PUBLIC_PYPI_URL=https://pypi.org/simple/
+      - PRIVATE_PYPI_URL=http://test-pypi:8080/simple/
+      - PORT=8081
+      - CACHE_ENABLED=false
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/simple/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s 

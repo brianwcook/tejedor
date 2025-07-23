@@ -1,3 +1,4 @@
+// Package config provides configuration management for the PyPI proxy application.
 package config
 
 import (

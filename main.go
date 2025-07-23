@@ -1,3 +1,4 @@
+// Package main provides the entry point for the PyPI proxy application.
 package main
 
 import (

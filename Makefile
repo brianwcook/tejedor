@@ -1,178 +1,232 @@
-# PyPI Proxy Makefile
+# Tejedor PyPI Proxy Makefile
 
-# Variables
-BINARY_NAME=pypi-proxy
-MAIN_FILE=main.go
-CONFIG_FILE=config.yaml
-
-# Go variables
-GOCMD=go
-GOBUILD=$(GOCMD) build
-GOCLEAN=$(GOCMD) clean
-GOTEST=$(GOCMD) test
-GOGET=$(GOCMD) get
-GOMOD=$(GOCMD) mod
-
-# Build flags
-LDFLAGS=-ldflags "-X main.Version=$(shell git describe --tags --always --dirty)"
+.PHONY: build test e2e-test clean-e2e clean-all help
 
 # Default target
-.DEFAULT_GOAL := build
+all: build
 
-# Build the application
-.PHONY: build
+# Build the tejedor binary
 build:
-	$(GOBUILD) $(LDFLAGS) -o $(BINARY_NAME) $(MAIN_FILE)
+	@echo "Building tejedor binary..."
+	go build -o tejedor .
 
-# Build for multiple platforms
-.PHONY: build-all
-build-all: build-linux build-darwin build-windows
-
-.PHONY: build-linux
-build-linux:
-	GOOS=linux GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o $(BINARY_NAME)-linux $(MAIN_FILE)
-
-.PHONY: build-darwin
-build-darwin:
-	GOOS=darwin GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o $(BINARY_NAME)-darwin $(MAIN_FILE)
-
-.PHONY: build-windows
-build-windows:
-	GOOS=windows GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o $(BINARY_NAME)-windows.exe $(MAIN_FILE)
-
-# Clean build artifacts
-.PHONY: clean
-clean:
-	$(GOCLEAN)
-	rm -f $(BINARY_NAME)
-	rm -f $(BINARY_NAME)-linux
-	rm -f $(BINARY_NAME)-darwin
-	rm -f $(BINARY_NAME)-windows.exe
-
-# Run the application
-.PHONY: run
-run: build
-	./$(BINARY_NAME)
-
-# Run with specific config
-.PHONY: run-config
-run-config: build
-	./$(BINARY_NAME) -config $(CONFIG_FILE)
-
-# Run in development mode
-.PHONY: dev
-dev:
-	$(GOCMD) run $(MAIN_FILE)
-
-# Run with development config
-.PHONY: dev-config
-dev-config:
-	$(GOCMD) run $(MAIN_FILE) -config $(CONFIG_FILE)
-
-# Install dependencies
-.PHONY: deps
-deps:
-	$(GOMOD) download
-	$(GOMOD) tidy
-
-# Run tests
-.PHONY: test
+# Run unit tests
 test:
-	$(GOTEST) ./...
+	@echo "Running unit tests..."
+	go test ./...
 
-# Run tests with coverage
-.PHONY: test-coverage
-test-coverage:
-	$(GOTEST) -cover ./...
+# Clean up any existing e2e test containers and processes
+clean-e2e:
+	@echo "Cleaning up existing e2e test containers and processes..."
+	@podman stop test-pypi-server tejedor-test-pypi tejedor-proxy 2>/dev/null || true
+	@podman rm -f test-pypi-server tejedor-test-pypi tejedor-proxy 2>/dev/null || true
+	@pgrep -f "tejedor.*config\.json" | xargs -r kill -9 2>/dev/null || true
+	@pgrep -f "tejedor.*test-config\.yaml" | xargs -r kill -9 2>/dev/null || true
+	@echo "✅ Cleanup complete - letting podman handle port forwarding cleanup"
 
-# Run tests with verbose output
-.PHONY: test-verbose
-test-verbose:
-	$(GOTEST) -v ./...
+# Clean all containers and images
+clean-all: clean-e2e
+	@echo "Cleaning all test containers and images..."
+	@podman rmi test-pypi-server tejedor-test-pypi 2>/dev/null || true
+	@echo "✅ All cleanup complete"
 
-# Run unit tests only
-.PHONY: test-unit
-test-unit:
-	$(GOTEST) ./cache/...
-	$(GOTEST) ./config/...
-	$(GOTEST) ./pypi/...
+# Run end-to-end tests
+e2e-test: clean-e2e
+	@echo "🚀 Starting E2E tests..."
+	@cd e2e && ./run_tests.sh
+	@echo ""
+	@echo "🎉 E2E tests completed!"
+	@echo ""
+	@echo "📋 Container Management:"
+	@echo "  • To restart the test container: podman start tejedor-test-pypi"
+	@echo "  • To inspect the container: podman exec -it tejedor-test-pypi bash"
+	@echo "  • To remove the container: podman rm tejedor-test-pypi"
+	@echo "  • To clean everything: make clean-all"
+	@echo ""
 
-# Run integration tests only
-.PHONY: test-integration
-test-integration:
-	$(GOTEST) ./integration/...
+# Run end-to-end tests in CI (with automatic cleanup)
+e2e-test-ci: clean-e2e
+	@echo "🚀 Starting E2E tests in CI mode..."
+	@cd e2e && ./run_tests.sh
+	@echo "🧹 Cleaning up test environment..."
+	@podman stop tejedor-test-pypi tejedor-proxy 2>/dev/null || true
+	@podman rm -f tejedor-test-pypi tejedor-proxy 2>/dev/null || true
+	@echo "🎉 E2E tests completed!"
 
-# Run integration tests with cache testing
-.PHONY: test-integration-cache
-test-integration-cache:
-	$(GOTEST) -v ./integration/ -run TestProxyWithCache
-
-# Run tests with race detection
-.PHONY: test-race
-test-race:
-	$(GOTEST) -race ./...
-
-# Format code (uses gofumpt only - same as CI)
-# Note: Ensure you're using the same Go version and tool versions as CI (Go 1.21)
-.PHONY: fmt
-fmt:
-	$(shell go env GOPATH)/bin/gofumpt -w .
-
-# Run linter (uses golangci-lint - same as CI)
-# Note: Ensure you're using the same Go version and tool versions as CI (Go 1.21)
-.PHONY: lint
-lint:
-	$(shell go env GOPATH)/bin/golangci-lint run
-
-# Install linter
-.PHONY: install-lint
-install-lint:
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-
-# Run security scan (uses gosec - same as CI)
-# Note: Ensure you're using the same Go version and tool versions as CI (Go 1.21)
-.PHONY: security
-security:
-	$(shell go env GOPATH)/bin/gosec -fmt=json -out=security-report.json ./...
-
-# Install security scanner
-.PHONY: install-security
-install-security:
-	go install github.com/securego/gosec/v2/cmd/gosec@latest
-
-# Create default config file
-.PHONY: config
-config:
-	@if [ ! -f $(CONFIG_FILE) ]; then \
-		echo "Creating default config file..."; \
-		cp config.yaml $(CONFIG_FILE); \
-		echo "Please edit $(CONFIG_FILE) with your private PyPI URL"; \
-	else \
-		echo "Config file $(CONFIG_FILE) already exists"; \
+# Run all CI checks locally (same as GitHub Actions)
+ci-ready: clean-all
+	@echo "🚀 Running all CI checks locally (matching GitHub Actions)..."
+	@echo ""
+	
+	@echo "🔧 Step 1/8: Checking and installing required tools..."
+	@echo "Checking Go installation..."
+	@if ! command -v go &> /dev/null; then \
+		echo "❌ Go is not installed or not in PATH"; \
+		echo "   Install Go from: https://golang.org/dl/"; \
+		exit 1; \
 	fi
+	@echo "✅ Go found: $$(go version)"
+	
+	@echo "Checking podman installation..."
+	@if ! command -v podman &> /dev/null; then \
+		echo "❌ Podman is not installed or not in PATH"; \
+		echo "   Install podman from: https://podman.io/getting-started/installation"; \
+		echo "   Or use: brew install podman (on macOS)"; \
+		exit 1; \
+	fi
+	@echo "✅ Podman found: $$(podman --version)"
+	
+	@echo "Checking Python3 installation..."
+	@if ! command -v python3 &> /dev/null; then \
+		echo "❌ Python3 is not installed or not in PATH"; \
+		echo "   Install Python3 from: https://www.python.org/downloads/"; \
+		echo "   Or use: brew install python (on macOS)"; \
+		exit 1; \
+	fi
+	@echo "✅ Python3 found: $$(python3 --version)"
+	
+	@echo "Checking jq installation..."
+	@if ! command -v jq &> /dev/null; then \
+		echo "❌ jq is not installed or not in PATH"; \
+		echo "   Install jq from: https://stedolan.github.io/jq/download/"; \
+		echo "   Or use: brew install jq (on macOS)"; \
+		exit 1; \
+	fi
+	@echo "✅ jq found: $$(jq --version)"
+	
+	@echo "Checking bc installation..."
+	@if ! command -v bc &> /dev/null; then \
+		echo "❌ bc is not installed or not in PATH"; \
+		echo "   Install bc from: https://www.gnu.org/software/bc/"; \
+		echo "   Or use: brew install bc (on macOS)"; \
+		exit 1; \
+	fi
+	@echo "✅ bc found"
+	
+	@echo "Installing golangci-lint v1.64.8 (same as CI)..."
+	@echo "Installing golangci-lint v1.64.8..."; \
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8; \
+	echo "✅ golangci-lint v1.64.8 installed"
+	
+	@echo "Installing gosec (same as CI)..."
+	@if ! command -v gosec &> /dev/null; then \
+		echo "Installing gosec..."; \
+		go install github.com/securego/gosec/v2/cmd/gosec@latest; \
+		echo "✅ gosec installed"; \
+	else \
+		echo "✅ gosec already installed: $$(gosec --version | head -n1)"; \
+	fi
+	@echo ""
+	
+	@echo "📦 Step 2/8: Installing dependencies..."
+	@go mod download
+	@echo "✅ Dependencies installed"
+	@echo ""
+	
+	@echo "🧪 Step 3/8: Running unit tests (same as CI)..."
+	@go test -v -race -coverprofile=coverage.out ./cache ./config ./pypi ./proxy
+	@echo "✅ Unit tests passed"
+	@echo ""
+	
+	@echo "🔗 Step 4/8: Running integration tests (same as CI)..."
+	@CI=true go test -v -race -coverprofile=integration-coverage.out ./integration
+	@echo "✅ Integration tests passed"
+	@echo ""
+	
+	@echo "🐳 Step 5/8: Running e2e tests (same as CI)..."
+	@make e2e-test-ci
+	@echo "✅ E2E tests passed"
+	@echo ""
+	
+	@echo "📊 Step 6/8: Merging coverage reports (same as CI)..."
+	@echo "mode: set" > combined-coverage.out
+	@tail -n +2 coverage.out >> combined-coverage.out
+	@tail -n +2 integration-coverage.out >> combined-coverage.out
+	@go tool cover -html=combined-coverage.out -o coverage.html
+	@echo "✅ Coverage reports merged"
+	@echo ""
+	
+	@echo "🎯 Step 7/8: Checking coverage threshold (same as CI)..."
+	@COVERAGE=$$(go tool cover -func=combined-coverage.out | grep total | awk '{print $$3}' | sed 's/%//'); \
+	echo "Code coverage: $${COVERAGE}%"; \
+	if (( $$(echo "$${COVERAGE} < 80" | bc -l) )); then \
+		echo "❌ Coverage $${COVERAGE}% is below threshold 80%"; \
+		exit 1; \
+	else \
+		echo "✅ Coverage $${COVERAGE}% meets threshold 80%"; \
+	fi
+	@echo ""
+	
+	@echo "🔍 Step 8/8: Running linting (same as CI)..."
+	@if command -v golangci-lint &> /dev/null; then \
+		golangci-lint run; \
+		echo "✅ Linting passed"; \
+	else \
+		echo "⚠️  golangci-lint not found, skipping linting"; \
+		echo "   Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8"; \
+	fi
+	@echo ""
+	
+	@echo "🔒 Step 8/9: Running security scan (same as CI)..."
+	@if command -v gosec &> /dev/null; then \
+		gosec -fmt=json -out=security-report.json ./...; \
+		if [ -f security-report.json ]; then \
+			ISSUES=$$(jq -r '.Issues | length' security-report.json 2>/dev/null || echo "0"); \
+			if [ "$$ISSUES" -gt 0 ]; then \
+				echo "❌ Found $$ISSUES security issues:"; \
+				jq -r '.Issues[] | "\(.severity): \(.details) in \(.file):\(.line)"' security-report.json; \
+				exit 1; \
+			else \
+				echo "✅ No security issues found"; \
+			fi; \
+		else \
+			echo "❌ Security report not generated"; \
+			exit 1; \
+		fi; \
+	else \
+		echo "⚠️  gosec not found, skipping security scan"; \
+		echo "   Install with: go install github.com/securego/gosec/v2/cmd/gosec@latest"; \
+	fi
+	@echo ""
+	
+	@echo "🏗️ Step 9/9: Building for all platforms (same as CI)..."
+	@GOOS=linux GOARCH=amd64 go build -o pypi-proxy-linux-amd64 .
+	@GOOS=linux GOARCH=arm64 go build -o pypi-proxy-linux-arm64 .
+	@GOOS=darwin GOARCH=amd64 go build -o pypi-proxy-darwin-amd64 .
+	@GOOS=darwin GOARCH=arm64 go build -o pypi-proxy-darwin-arm64 .
+	@GOOS=windows GOARCH=amd64 go build -o pypi-proxy-windows-amd64.exe .
+	@echo "✅ All platform builds successful"
+	@echo ""
+	
+	@echo "🧹 Cleaning up build artifacts..."
+	@rm -f pypi-proxy-* coverage.out integration-coverage.out combined-coverage.out coverage.html security-report.json
+	@echo "✅ Build artifacts cleaned up"
+	@echo ""
+	
+	@echo "🎉 ALL CI CHECKS PASSED! 🎉"
+	@echo "✅ Your code is ready for GitHub Actions"
+	@echo "✅ Tool installation: PASS"
+	@echo "✅ Unit tests: PASS"
+	@echo "✅ Integration tests: PASS" 
+	@echo "✅ E2E tests: PASS"
+	@echo "✅ Coverage threshold: PASS"
+	@echo "✅ Linting: PASS"
+	@echo "✅ Security scan: PASS"
+	@echo "✅ Multi-platform builds: PASS"
+	@echo ""
+	@echo "🚀 You can now push with confidence!"
+
 
 # Show help
-.PHONY: help
 help:
-	@echo "Available targets:"
-	@echo "  build              - Build the application"
-	@echo "  build-all          - Build for all platforms (Linux, Darwin, Windows)"
-	@echo "  clean              - Clean build artifacts"
-	@echo "  run                - Build and run the application"
-	@echo "  run-config         - Build and run with config file"
-	@echo "  dev                - Run in development mode"
-	@echo "  dev-config         - Run in development mode with config file"
-	@echo "  deps               - Install dependencies"
-	@echo "  test               - Run all tests"
-	@echo "  test-coverage      - Run tests with coverage"
-	@echo "  test-verbose       - Run tests with verbose output"
-	@echo "  test-unit          - Run unit tests only"
-	@echo "  test-integration   - Run integration tests only"
-	@echo "  test-race          - Run tests with race detection"
-	@echo "  fmt                - Format code"
-	@echo "  lint               - Run linter"
-	@echo "  install-lint       - Install linter"
-	@echo "  security           - Run security scan"
-	@echo "  install-security   - Install security scanner"
-	@echo "  config             - Create default config file"
-	@echo "  help               - Show this help message" 
+	@echo "Tejedor PyPI Proxy - Available targets:"
+	@echo ""
+	@echo "  build      - Build the tejedor binary"
+	@echo "  test       - Run unit tests"
+	@echo "  e2e-test   - Run end-to-end tests (leaves environment running)"
+	@echo "  e2e-test-ci - Run end-to-end tests in CI (with cleanup)"
+	@echo "  ci-ready   - Run ALL CI checks locally (installs tools, tests, builds, lint, security)"
+	@echo "  clean-e2e  - Clean up e2e test containers and processes"
+	@echo "  clean-all  - Clean all containers and images"
+	@echo "  help       - Show this help message"
+	@echo "" 

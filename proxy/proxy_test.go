@@ -33,7 +33,7 @@ func NewMockPyPIClient() *MockPyPIClient {
 // Ensure MockPyPIClient implements PyPIClient interface.
 var _ pypi.PyPIClient = (*MockPyPIClient)(nil)
 
-func (m *MockPyPIClient) PackageExists(ctx context.Context, baseURL, packageName string) (bool, error) {
+func (m *MockPyPIClient) PackageExists(_ context.Context, baseURL, packageName string) (bool, error) {
 	if m.shouldError {
 		return false, fmt.Errorf("mock error")
 	}
@@ -42,27 +42,26 @@ func (m *MockPyPIClient) PackageExists(ctx context.Context, baseURL, packageName
 	if strings.Contains(baseURL, "pypi.org") {
 		m.publicCalls[packageName]++
 		return m.publicExists[packageName], nil
-	} else {
-		m.privateCalls[packageName]++
-		return m.privateExists[packageName], nil
 	}
+	m.privateCalls[packageName]++
+	return m.privateExists[packageName], nil
 }
 
-func (m *MockPyPIClient) GetPackagePage(ctx context.Context, baseURL, packageName string) ([]byte, error) {
+func (m *MockPyPIClient) GetPackagePage(_ context.Context, _, packageName string) ([]byte, error) {
 	if m.shouldError {
 		return nil, fmt.Errorf("mock error")
 	}
 	return []byte(fmt.Sprintf("<html><body>Package %s</body></html>", packageName)), nil
 }
 
-func (m *MockPyPIClient) GetPackageFile(ctx context.Context, fileURL string) ([]byte, error) {
+func (m *MockPyPIClient) GetPackageFile(_ context.Context, _ string) ([]byte, error) {
 	if m.shouldError {
 		return nil, fmt.Errorf("mock error")
 	}
 	return []byte("mock file content"), nil
 }
 
-func (m *MockPyPIClient) ProxyFile(ctx context.Context, fileURL string, w http.ResponseWriter, method string) error {
+func (m *MockPyPIClient) ProxyFile(_ context.Context, _ string, w http.ResponseWriter, _ string) error {
 	if m.shouldError {
 		return fmt.Errorf("mock error")
 	}
@@ -866,6 +865,6 @@ type failingResponseWriter struct {
 	*httptest.ResponseRecorder
 }
 
-func (f *failingResponseWriter) Write(data []byte) (int, error) {
+func (f *failingResponseWriter) Write(_ []byte) (int, error) {
 	return 0, fmt.Errorf("mock write error")
 }

@@ -19,48 +19,125 @@ func TestNewClient(t *testing.T) {
 }
 
 func TestPackageExists(t *testing.T) {
-	// Create test server
+	tests := []struct {
+		name           string
+		statusCode     int
+		expectedExists bool
+		expectedError  bool
+	}{
+		{
+			name:           "200 OK - package exists",
+			statusCode:     http.StatusOK,
+			expectedExists: true,
+			expectedError:  false,
+		},
+		{
+			name:           "404 Not Found - package does not exist",
+			statusCode:     http.StatusNotFound,
+			expectedExists: false,
+			expectedError:  false,
+		},
+		{
+			name:           "303 See Other - redirect (package does not exist)",
+			statusCode:     http.StatusSeeOther,
+			expectedExists: false,
+			expectedError:  false,
+		},
+		{
+			name:           "302 Found - redirect (package does not exist)",
+			statusCode:     http.StatusFound,
+			expectedExists: false,
+			expectedError:  false,
+		},
+		{
+			name:           "301 Moved Permanently - redirect (package does not exist)",
+			statusCode:     http.StatusMovedPermanently,
+			expectedExists: false,
+			expectedError:  false,
+		},
+		{
+			name:           "405 Method Not Allowed - fallback to GET",
+			statusCode:     http.StatusMethodNotAllowed,
+			expectedExists: false, // Will fallback to GET which returns 404
+			expectedError:  false,
+		},
+		{
+			name:           "500 Internal Server Error - error",
+			statusCode:     http.StatusInternalServerError,
+			expectedExists: false,
+			expectedError:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a test server that returns the specified status code
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == "HEAD" {
+					w.WriteHeader(tt.statusCode)
+					return
+				}
+				// For GET requests (fallback), return 404
+				w.WriteHeader(http.StatusNotFound)
+			}))
+			defer server.Close()
+
+			client := NewClient()
+			exists, err := client.PackageExists(context.Background(), server.URL, "test-package")
+
+			if tt.expectedError && err == nil {
+				t.Errorf("expected error but got none")
+			}
+			if !tt.expectedError && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+			if exists != tt.expectedExists {
+				t.Errorf("expected exists=%v, got exists=%v", tt.expectedExists, exists)
+			}
+		})
+	}
+}
+
+func TestPackageExistsWithGETFallback(t *testing.T) {
+	// Test the fallback to GET when HEAD returns 404
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "HEAD" {
-			w.WriteHeader(http.StatusOK)
-		} else {
 			w.WriteHeader(http.StatusNotFound)
+			return
 		}
+		if r.Method == "GET" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		w.WriteHeader(http.StatusMethodNotAllowed)
 	}))
 	defer server.Close()
 
 	client := NewClient()
-	ctx := context.Background()
-
-	baseURL := makeBaseURL(server.URL)
-	// Test package exists
-	exists, err := client.PackageExists(ctx, baseURL, "test-package")
+	exists, err := client.PackageExists(context.Background(), server.URL, "test-package")
 	if err != nil {
-		t.Fatalf("Expected no error, got %v", err)
+		t.Errorf("unexpected error: %v", err)
 	}
 	if !exists {
-		t.Error("Expected package to exist")
+		t.Errorf("expected exists=true, got exists=false")
 	}
 }
 
-func TestPackageNotExists(t *testing.T) {
-	// Create test server that returns 404
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func TestPackageExistsWithGETFallbackNotFound(t *testing.T) {
+	// Test the fallback to GET when HEAD returns 404 and GET also returns 404
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		// Both HEAD and GET return 404
 		w.WriteHeader(http.StatusNotFound)
 	}))
 	defer server.Close()
 
 	client := NewClient()
-	ctx := context.Background()
-
-	baseURL := makeBaseURL(server.URL)
-	// Test package doesn't exist
-	exists, err := client.PackageExists(ctx, baseURL, "non-existent-package")
+	exists, err := client.PackageExists(context.Background(), server.URL, "test-package")
 	if err != nil {
-		t.Fatalf("Expected no error, got %v", err)
+		t.Errorf("unexpected error: %v", err)
 	}
 	if exists {
-		t.Error("Expected package to not exist")
+		t.Errorf("expected exists=false, got exists=true")
 	}
 }
 
@@ -97,7 +174,7 @@ func TestGetPackagePage(t *testing.T) {
 
 func TestGetPackagePageNotFound(t *testing.T) {
 	// Create test server that returns 404
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	}))
 	defer server.Close()
@@ -117,7 +194,7 @@ func TestGetPackageFile(t *testing.T) {
 	expectedContent := "package file content"
 
 	// Create test server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/octet-stream")
 		if _, err := w.Write([]byte(expectedContent)); err != nil {
 			t.Errorf("Error writing response: %v", err)
@@ -141,7 +218,7 @@ func TestGetPackageFile(t *testing.T) {
 
 func TestGetPackageFileNotFound(t *testing.T) {
 	// Create test server that returns 404
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	}))
 	defer server.Close()
@@ -161,7 +238,7 @@ func TestProxyFile(t *testing.T) {
 	expectedHeader := "test-header-value"
 
 	// Create test server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/octet-stream")
 		w.Header().Set("X-Test-Header", expectedHeader)
 		if _, err := w.Write([]byte(expectedContent)); err != nil {
@@ -198,7 +275,7 @@ func TestProxyFile(t *testing.T) {
 
 func TestProxyFileNotFound(t *testing.T) {
 	// Create test server that returns 404
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	}))
 	defer server.Close()
@@ -240,7 +317,7 @@ func TestPackageNameNormalization(t *testing.T) {
 }
 
 func TestPackageExistsWithError(t *testing.T) {
-	client := &Client{
+	client := &HTTPClient{
 		httpClient: &http.Client{},
 	}
 
@@ -255,7 +332,7 @@ func TestPackageExistsWithError(t *testing.T) {
 }
 
 func TestGetPackagePageWithError(t *testing.T) {
-	client := &Client{
+	client := &HTTPClient{
 		httpClient: &http.Client{},
 	}
 
@@ -270,7 +347,7 @@ func TestGetPackagePageWithError(t *testing.T) {
 }
 
 func TestGetPackageFileWithError(t *testing.T) {
-	client := &Client{
+	client := &HTTPClient{
 		httpClient: &http.Client{},
 	}
 
@@ -285,7 +362,7 @@ func TestGetPackageFileWithError(t *testing.T) {
 }
 
 func TestProxyFileWithError(t *testing.T) {
-	client := &Client{
+	client := &HTTPClient{
 		httpClient: &http.Client{},
 	}
 

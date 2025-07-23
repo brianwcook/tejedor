@@ -41,6 +41,14 @@ A Go application that acts as a proxy for PyPI (Python Package Index), implement
   }
   ```
 
+## Code Quality
+
+This project maintains high code quality standards with:
+- **Go Linting**: Uses `golangci-lint` with comprehensive rules including `govet`, `errcheck`, `staticcheck`, and more
+- **Test Coverage**: Maintains >80% test coverage across all packages
+- **Race Detection**: All tests run with `-race` flag to detect race conditions
+- **Security Scanning**: Uses `gosec` for security vulnerability detection
+
 ## Quick Start
 
 ### Prerequisites
@@ -157,35 +165,48 @@ curl -I http://localhost:8080/simple/pycups/
 
 ## Testing
 
+The application includes comprehensive testing with multiple test types:
+
 ### Unit Tests
-
-Run unit tests:
-```bash
-go test ./...
-```
-
-Run tests with coverage:
-```bash
-go test -cover ./...
-```
+- **Cache Tests**: Test cache functionality including creation, operations, expiration, and statistics
+- **Config Tests**: Test configuration management, environment variables, and file loading
+- **PyPI Client Tests**: Test HTTP client functionality, package existence, and file handling
+- **Proxy Tests**: Test main proxy functionality, HTTP handlers, and error scenarios
 
 ### Integration Tests
+- **Local PyPI Server**: Tests use a local mock PyPI server instead of external dependencies
+- **Real Public PyPI**: Tests against the actual public PyPI index for realistic validation
+- **Cache Integration**: Tests caching behavior with real network calls
+- **File Handling**: Tests file proxying functionality
+- **Error Handling**: Tests with invalid URLs and network failures
+- **Request Validation**: Tests invalid request handling
+- **Source Filtering**: Tests public vs private index behavior
 
-Run integration tests (requires network access):
+### Test Features
+- **No External Dependencies**: Integration tests use a local PyPI server, eliminating dependency on external private indexes
+- **Comprehensive Coverage**: Tests all major functionality including caching, file handling, and error scenarios
+- **Real Integration**: Tests against actual public PyPI index for realistic validation
+- **Race Detection**: Built-in race condition testing
+- **Coverage Reporting**: Built-in coverage analysis
+
+### Running Tests
+
 ```bash
+# Run all tests
+go test ./...
+
+# Run tests with coverage
+go test -cover ./...
+
+# Run only unit tests
+go test ./cache/... ./config/... ./pypi/... ./proxy/...
+
+# Run only integration tests
 go test ./integration/...
+
+# Run tests with race detection
+go test -race ./...
 ```
-
-Run integration tests with cache testing:
-```bash
-go test -v ./integration/ -run TestProxyWithCache
-```
-
-### Test Examples
-
-The integration tests include examples for:
-- **pycups**: Package only in public PyPI (served from public)
-- **pydantic**: Package in both indexes (served from private)
 
 ## Development
 

@@ -1,0 +1,39 @@
+FROM golang:1.21-alpine AS builder
+
+WORKDIR /app
+
+# Copy go mod files
+COPY go.mod go.sum ./
+
+# Download dependencies
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Build tejedor
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o tejedor .
+
+# Create minimal runtime image
+FROM alpine:latest
+
+RUN apk --no-cache add ca-certificates curl
+
+WORKDIR /root/
+
+# Copy the binary from builder stage
+COPY --from=builder /app/tejedor .
+
+# Create config file
+RUN echo '{\
+  "public_pypi_url": "https://pypi.org/simple/",\
+  "private_pypi_url": "http://test-pypi:8080/simple/",\
+  "port": 8081,\
+  "cache_enabled": false,\
+  "cache_size": 100,\
+  "cache_ttl": 1\
+}' > config.json
+
+EXPOSE 8081
+
+CMD ["./tejedor", "-config", "config.json"] 

@@ -37,6 +37,23 @@ jobs:
         # Skip integration tests that require network access in CI
         CI: true
 
+    - name: Install dependencies
+      run: |
+        # Install Podman for container management
+        sudo apt-get update
+        sudo apt-get install -y podman python3 python3-pip python3-venv
+        podman --version
+        python3 --version
+
+    - name: Run e2e tests
+      run: |
+        # Run the new Go-based e2e tests with container setup
+        make e2e-test-ci
+      timeout-minutes: 15
+      env:
+        # Allow Podman to run in CI
+        PODMAN_BUILDKIT: 1
+
     - name: Merge coverage reports
       run: |
         # Create a combined coverage file
@@ -82,7 +99,7 @@ jobs:
     - name: Install golangci-lint
       uses: golangci/golangci-lint-action@v3
       with:
-        version: latest
+        version: v1.64.8
 
     - name: Run golangci-lint
       run: golangci-lint run
