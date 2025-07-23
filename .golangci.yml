@@ -3,7 +3,7 @@ run:
   go: "1.24"
 
 # This is the version of golangci-lint configuration
-version: 2
+# version: 2  # Commented out for compatibility with v1.64.8
 
 linters:
   enable:
