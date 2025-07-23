@@ -87,6 +87,23 @@ go build -o pypi-proxy
 
 The proxy will start on port 8080 by default.
 
+### Command Line Flags
+
+You can also configure the proxy using command line flags:
+
+```bash
+./pypi-proxy --private-pypi-url="https://your-private-pypi.com/simple/" --port=9090 --cache-enabled=false
+```
+
+Available flags:
+- `--private-pypi-url`: URL of the private PyPI server (required)
+- `--public-pypi-url`: URL of the public PyPI server (default: https://pypi.org/simple/)
+- `--port`: Port to listen on (default: 8080)
+- `--cache-enabled`: Enable caching (default: true)
+- `--cache-size`: Cache size in entries (default: 20000)
+- `--cache-ttl-hours`: Cache TTL in hours (default: 12)
+- `--config`: Path to configuration file
+
 ## Configuration
 
 ### Configuration File
