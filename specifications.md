@@ -202,68 +202,68 @@ type PackageInfo struct {
 
 ## Testing Strategy
 
-### Unit Tests
+### Test Architecture
 
-1. **Configuration Tests**
-   - Default configuration values
-   - Environment variable loading
-   - Configuration file loading
-   - Validation errors
+The application implements a comprehensive testing strategy with multiple test types:
 
-2. **Cache Tests**
-   - Cache creation and configuration
-   - Get/Set operations
-   - TTL expiration
-   - Cache statistics
-   - Thread safety
+#### Unit Tests
+- **Cache Tests** (`cache/cache_test.go`): Test cache functionality including creation, operations, expiration, statistics, and HTML page caching
+- **Config Tests** (`config/config_test.go`): Test configuration management, environment variables, file loading, and validation
+- **PyPI Client Tests** (`pypi/client_test.go`): Test HTTP client functionality, package existence, file handling, and error scenarios
+- **Proxy Tests** (`proxy/proxy_test.go`): Test main proxy functionality, HTTP handlers, caching behavior, and error scenarios
 
-3. **PyPI Client Tests**
-   - HTTP request handling
-   - Response parsing
-   - Error handling
-   - Package name normalization
+#### Integration Tests
+- **Local PyPI Server** (`integration/integration_test.go`): Tests use a local mock PyPI server to eliminate external dependencies
+- **Real Public PyPI**: Tests against actual public PyPI index for realistic validation
+- **Comprehensive Coverage**: Tests all major functionality including caching, file handling, error scenarios, and request validation
 
-4. **Proxy Logic Tests**
-   - Request routing
-   - Response header generation
-   - Error handling
-   - Package name extraction
+### Test Features
 
-### Integration Tests
+#### Local PyPI Server
+- **Mock Implementation**: Custom local PyPI server that implements the Simple Repository API
+- **Package Management**: Supports test packages with multiple versions and file types
+- **URL Normalization**: Handles malformed URLs and double slashes from proxy requests
+- **HEAD Request Support**: Properly handles HEAD requests for package existence checks
+- **File Serving**: Serves mock package files with appropriate headers and content
 
-1. **Real PyPI Integration**
-   - Test with actual PyPI indexes
-   - Verify routing logic with real packages
-   - Test response headers
-   - Test file proxying
+#### Test Packages
+- **privatepackage**: Package that exists only in local server (simulates private packages)
+- **mixedpackage**: Package with both source and wheel files (tests filtering behavior)
+- **Real packages**: Tests against actual public PyPI packages (requests, pip, flask, etc.)
 
-2. **Cache Integration**
-   - Test caching with real requests
-   - Verify cache hit/miss behavior
-   - Test cache expiration
+#### Test Scenarios
+- **Package Existence**: Tests package existence checks for both indexes
+- **File Handling**: Tests file proxying with proper source routing
+- **Caching Behavior**: Tests cache hits, misses, expiration, and statistics
+- **Error Handling**: Tests network failures, invalid requests, and edge cases
+- **Source Filtering**: Tests public vs private index behavior and wheel file filtering
 
-3. **Error Scenarios**
-   - Network failures
-   - Invalid URLs
-   - Malformed requests
+### Test Execution
 
-### Test Examples
+```bash
+# Run all tests
+go test ./...
 
-#### Package Examples
+# Run tests with coverage
+go test -cover ./...
 
-1. **pycups**
-   - Exists only in public PyPI
-   - Expected source: `public`
-   - Expected behavior: Serve from public index
+# Run only unit tests
+go test ./cache/... ./config/... ./pypi/... ./proxy/...
 
-2. **pydantic**
-   - Exists in both indexes
-   - Expected source: `private`
-   - Expected behavior: Serve from private index
+# Run only integration tests
+go test ./integration/...
 
-3. **Non-existent Package**
-   - Exists in neither index
-   - Expected behavior: Return 404
+# Run tests with race detection
+go test -race ./...
+```
+
+### Test Benefits
+
+1. **No External Dependencies**: Integration tests use local server, eliminating dependency on external private indexes
+2. **Comprehensive Coverage**: Tests all major functionality including edge cases and error scenarios
+3. **Real Integration**: Tests against actual public PyPI index for realistic validation
+4. **Fast Execution**: Local server provides fast, reliable test execution
+5. **CI Friendly**: Tests work reliably in CI environments without external network dependencies
 
 ## Implementation Details
 
