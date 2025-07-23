@@ -1,0 +1,20 @@
+# Pinned versions for reliable e2e testing
+# These versions match what the test scripts expect
+
+# Private PyPI packages (served from local test server)
+flask==2.3.3
+click==8.1.7
+jinja2==3.1.2
+werkzeug==2.3.7
+six==1.16.0
+itsdangerous==2.1.2
+blinker==1.6.3
+requests==2.31.0
+
+# Public PyPI packages (for testing mixed scenarios)
+# Note: These are not downloaded to the test server but used to test
+# the proxy's ability to fetch from public PyPI
+# numpy==1.24.3
+# pandas==2.0.3
+# matplotlib==3.7.2
+# scipy==1.11.1 
