@@ -54,10 +54,10 @@ e2e-test-ci: clean-e2e
 
 # Run all CI checks locally (same as GitHub Actions)
 ci-ready: clean-all
-	@echo "🚀 Running all CI checks locally..."
+	@echo "🚀 Running all CI checks locally (matching GitHub Actions)..."
 	@echo ""
 	
-	@echo "🔧 Step 1/7: Checking and installing required tools..."
+	@echo "🔧 Step 1/8: Checking and installing required tools..."
 	@echo "Checking Go installation..."
 	@if ! command -v go &> /dev/null; then \
 		echo "❌ Go is not installed or not in PATH"; \
@@ -102,16 +102,12 @@ ci-ready: clean-all
 	fi
 	@echo "✅ bc found"
 	
-	@echo "Installing golangci-lint if not present..."
-	@if ! command -v golangci-lint &> /dev/null; then \
-		echo "Installing golangci-lint..."; \
-		go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest; \
-		echo "✅ golangci-lint installed"; \
-	else \
-		echo "✅ golangci-lint already installed: $$(golangci-lint --version | head -n1)"; \
-	fi
+	@echo "Installing golangci-lint v1.64.8 (same as CI)..."
+	@echo "Installing golangci-lint v1.64.8..."; \
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8; \
+	echo "✅ golangci-lint v1.64.8 installed"
 	
-	@echo "Installing gosec if not present..."
+	@echo "Installing gosec (same as CI)..."
 	@if ! command -v gosec &> /dev/null; then \
 		echo "Installing gosec..."; \
 		go install github.com/securego/gosec/v2/cmd/gosec@latest; \
@@ -121,37 +117,56 @@ ci-ready: clean-all
 	fi
 	@echo ""
 	
-	@echo "📦 Step 2/7: Installing dependencies..."
+	@echo "📦 Step 2/8: Installing dependencies..."
 	@go mod download
 	@echo "✅ Dependencies installed"
 	@echo ""
 	
-	@echo "🧪 Step 3/7: Running unit tests..."
+	@echo "🧪 Step 3/8: Running unit tests (same as CI)..."
 	@go test -v -race -coverprofile=coverage.out ./cache ./config ./pypi ./proxy
 	@echo "✅ Unit tests passed"
 	@echo ""
 	
-	@echo "🔗 Step 4/7: Running integration tests..."
+	@echo "🔗 Step 4/8: Running integration tests (same as CI)..."
 	@CI=true go test -v -race -coverprofile=integration-coverage.out ./integration
 	@echo "✅ Integration tests passed"
 	@echo ""
 	
-	@echo "🐳 Step 5/7: Running e2e tests..."
+	@echo "🐳 Step 5/8: Running e2e tests (same as CI)..."
 	@make e2e-test-ci
 	@echo "✅ E2E tests passed"
 	@echo ""
 	
-	@echo "🔍 Step 6/7: Running linting..."
+	@echo "📊 Step 6/8: Merging coverage reports (same as CI)..."
+	@echo "mode: set" > combined-coverage.out
+	@tail -n +2 coverage.out >> combined-coverage.out
+	@tail -n +2 integration-coverage.out >> combined-coverage.out
+	@go tool cover -html=combined-coverage.out -o coverage.html
+	@echo "✅ Coverage reports merged"
+	@echo ""
+	
+	@echo "🎯 Step 7/8: Checking coverage threshold (same as CI)..."
+	@COVERAGE=$$(go tool cover -func=combined-coverage.out | grep total | awk '{print $$3}' | sed 's/%//'); \
+	echo "Code coverage: $${COVERAGE}%"; \
+	if (( $$(echo "$${COVERAGE} < 80" | bc -l) )); then \
+		echo "❌ Coverage $${COVERAGE}% is below threshold 80%"; \
+		exit 1; \
+	else \
+		echo "✅ Coverage $${COVERAGE}% meets threshold 80%"; \
+	fi
+	@echo ""
+	
+	@echo "🔍 Step 8/8: Running linting (same as CI)..."
 	@if command -v golangci-lint &> /dev/null; then \
 		golangci-lint run; \
 		echo "✅ Linting passed"; \
 	else \
 		echo "⚠️  golangci-lint not found, skipping linting"; \
-		echo "   Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; \
+		echo "   Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8"; \
 	fi
 	@echo ""
 	
-	@echo "🔒 Step 7/7: Running security scan..."
+	@echo "🔒 Step 8/9: Running security scan (same as CI)..."
 	@if command -v gosec &> /dev/null; then \
 		gosec -fmt=json -out=security-report.json ./...; \
 		if [ -f security-report.json ]; then \
@@ -173,32 +188,13 @@ ci-ready: clean-all
 	fi
 	@echo ""
 	
-	@echo "🏗️ Step 7/7: Building for all platforms..."
+	@echo "🏗️ Step 9/9: Building for all platforms (same as CI)..."
 	@GOOS=linux GOARCH=amd64 go build -o pypi-proxy-linux-amd64 .
 	@GOOS=linux GOARCH=arm64 go build -o pypi-proxy-linux-arm64 .
 	@GOOS=darwin GOARCH=amd64 go build -o pypi-proxy-darwin-amd64 .
 	@GOOS=darwin GOARCH=arm64 go build -o pypi-proxy-darwin-arm64 .
 	@GOOS=windows GOARCH=amd64 go build -o pypi-proxy-windows-amd64.exe .
 	@echo "✅ All platform builds successful"
-	@echo ""
-	
-	@echo "📊 Generating coverage report..."
-	@echo "mode: set" > combined-coverage.out
-	@tail -n +2 coverage.out >> combined-coverage.out
-	@tail -n +2 integration-coverage.out >> combined-coverage.out
-	@go tool cover -html=combined-coverage.out -o coverage.html
-	@echo "✅ Coverage report generated"
-	@echo ""
-	
-	@echo "🎯 Checking coverage threshold..."
-	@COVERAGE=$$(go tool cover -func=combined-coverage.out | grep total | awk '{print $$3}' | sed 's/%//'); \
-	echo "Code coverage: $${COVERAGE}%"; \
-	if (( $$(echo "$${COVERAGE} < 80" | bc -l) )); then \
-		echo "❌ Coverage $${COVERAGE}% is below threshold 80%"; \
-		exit 1; \
-	else \
-		echo "✅ Coverage $${COVERAGE}% meets threshold 80%"; \
-	fi
 	@echo ""
 	
 	@echo "🧹 Cleaning up build artifacts..."
@@ -212,12 +208,13 @@ ci-ready: clean-all
 	@echo "✅ Unit tests: PASS"
 	@echo "✅ Integration tests: PASS" 
 	@echo "✅ E2E tests: PASS"
+	@echo "✅ Coverage threshold: PASS"
 	@echo "✅ Linting: PASS"
 	@echo "✅ Security scan: PASS"
 	@echo "✅ Multi-platform builds: PASS"
-	@echo "✅ Coverage threshold: PASS"
 	@echo ""
 	@echo "🚀 You can now push with confidence!"
+
 
 # Show help
 help:
