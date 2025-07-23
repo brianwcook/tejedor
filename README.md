@@ -41,6 +41,14 @@ A Go application that acts as a proxy for PyPI (Python Package Index), implement
   }
   ```
 
+## Code Quality
+
+This project maintains high code quality standards with:
+- **Go Linting**: Uses `golangci-lint` with comprehensive rules including `govet`, `errcheck`, `staticcheck`, and more
+- **Test Coverage**: Maintains >80% test coverage across all packages
+- **Race Detection**: All tests run with `-race` flag to detect race conditions
+- **Security Scanning**: Uses `gosec` for security vulnerability detection
+
 ## Quick Start
 
 ### Prerequisites
