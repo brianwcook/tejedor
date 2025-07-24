@@ -13,7 +13,12 @@ build:
 # Run unit tests
 test:
 	@echo "Running unit tests..."
-	go test ./...
+	go test ./cache ./config ./pypi ./proxy ./integration
+
+# Run e2e tests (requires test environment setup)
+test-e2e:
+	@echo "Running e2e tests..."
+	go test -tags=e2e ./e2e
 
 # Clean up any existing e2e test containers and processes
 clean-e2e:
@@ -57,7 +62,7 @@ e2e-test-ci: clean-e2e
 ci-ready: clean-all
 	@echo "🚀 Running all CI checks locally (matching GitHub Actions)..."
 	@echo ""
-	
+
 	@echo "🔧 Step 1/8: Checking and installing required tools..."
 	@echo "Checking Go installation..."
 	@if ! command -v go &> /dev/null; then \
@@ -66,7 +71,7 @@ ci-ready: clean-all
 		exit 1; \
 	fi
 	@echo "✅ Go found: $$(go version)"
-	
+
 	@echo "Checking podman installation..."
 	@if ! command -v podman &> /dev/null; then \
 		echo "❌ Podman is not installed or not in PATH"; \
@@ -75,7 +80,7 @@ ci-ready: clean-all
 		exit 1; \
 	fi
 	@echo "✅ Podman found: $$(podman --version)"
-	
+
 	@echo "Checking Python3 installation..."
 	@if ! command -v python3 &> /dev/null; then \
 		echo "❌ Python3 is not installed or not in PATH"; \
@@ -84,7 +89,7 @@ ci-ready: clean-all
 		exit 1; \
 	fi
 	@echo "✅ Python3 found: $$(python3 --version)"
-	
+
 	@echo "Checking jq installation..."
 	@if ! command -v jq &> /dev/null; then \
 		echo "❌ jq is not installed or not in PATH"; \
@@ -93,7 +98,7 @@ ci-ready: clean-all
 		exit 1; \
 	fi
 	@echo "✅ jq found: $$(jq --version)"
-	
+
 	@echo "Checking bc installation..."
 	@if ! command -v bc &> /dev/null; then \
 		echo "❌ bc is not installed or not in PATH"; \
@@ -102,12 +107,12 @@ ci-ready: clean-all
 		exit 1; \
 	fi
 	@echo "✅ bc found"
-	
+
 	@echo "Installing golangci-lint v1.64.8 (same as CI)..."
 	@echo "Installing golangci-lint v1.64.8..."; \
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8; \
 	echo "✅ golangci-lint v1.64.8 installed"
-	
+
 	@echo "Installing gosec (same as CI)..."
 	@if ! command -v gosec &> /dev/null; then \
 		echo "Installing gosec..."; \
@@ -117,27 +122,27 @@ ci-ready: clean-all
 		echo "✅ gosec already installed: $$(gosec --version | head -n1)"; \
 	fi
 	@echo ""
-	
+
 	@echo "📦 Step 2/8: Installing dependencies..."
 	@go mod download
 	@echo "✅ Dependencies installed"
 	@echo ""
-	
+
 	@echo "🧪 Step 3/8: Running unit tests (same as CI)..."
-	@go test -v -race -coverprofile=coverage.out ./cache ./config ./pypi ./proxy
+	@go test -v -race -coverprofile=coverage.out ./cache ./config ./pypi ./proxy ./integration
 	@echo "✅ Unit tests passed"
 	@echo ""
-	
+
 	@echo "🔗 Step 4/8: Running integration tests (same as CI)..."
 	@CI=true go test -v -race -coverprofile=integration-coverage.out ./integration
 	@echo "✅ Integration tests passed"
 	@echo ""
-	
+
 	@echo "🐳 Step 5/8: Running e2e tests (same as CI)..."
 	@make e2e-test-ci
 	@echo "✅ E2E tests passed"
 	@echo ""
-	
+
 	@echo "📊 Step 6/8: Merging coverage reports (same as CI)..."
 	@echo "mode: set" > combined-coverage.out
 	@tail -n +2 coverage.out >> combined-coverage.out
@@ -145,7 +150,7 @@ ci-ready: clean-all
 	@go tool cover -html=combined-coverage.out -o coverage.html
 	@echo "✅ Coverage reports merged"
 	@echo ""
-	
+
 	@echo "🎯 Step 7/8: Checking coverage threshold (same as CI)..."
 	@COVERAGE=$$(go tool cover -func=combined-coverage.out | grep total | awk '{print $$3}' | sed 's/%//'); \
 	echo "Code coverage: $${COVERAGE}%"; \
@@ -156,7 +161,7 @@ ci-ready: clean-all
 		echo "✅ Coverage $${COVERAGE}% meets threshold 80%"; \
 	fi
 	@echo ""
-	
+
 	@echo "🔍 Step 8/8: Running linting (same as CI)..."
 	@if command -v golangci-lint &> /dev/null; then \
 		golangci-lint run; \
@@ -166,7 +171,7 @@ ci-ready: clean-all
 		echo "   Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8"; \
 	fi
 	@echo ""
-	
+
 	@echo "🔒 Step 8/9: Running security scan (same as CI)..."
 	@if command -v gosec &> /dev/null; then \
 		gosec -fmt=json -out=security-report.json ./...; \
@@ -188,7 +193,7 @@ ci-ready: clean-all
 		echo "   Install with: go install github.com/securego/gosec/v2/cmd/gosec@latest"; \
 	fi
 	@echo ""
-	
+
 	@echo "🏗️ Step 9/9: Building for all platforms (same as CI)..."
 	@GOOS=linux GOARCH=amd64 go build -o pypi-proxy-linux-amd64 .
 	@GOOS=linux GOARCH=arm64 go build -o pypi-proxy-linux-arm64 .
@@ -197,17 +202,17 @@ ci-ready: clean-all
 	@GOOS=windows GOARCH=amd64 go build -o pypi-proxy-windows-amd64.exe .
 	@echo "✅ All platform builds successful"
 	@echo ""
-	
+
 	@echo "🧹 Cleaning up build artifacts..."
 	@rm -f pypi-proxy-* coverage.out integration-coverage.out combined-coverage.out coverage.html security-report.json
 	@echo "✅ Build artifacts cleaned up"
 	@echo ""
-	
+
 	@echo "🎉 ALL CI CHECKS PASSED! 🎉"
 	@echo "✅ Your code is ready for GitHub Actions"
 	@echo "✅ Tool installation: PASS"
 	@echo "✅ Unit tests: PASS"
-	@echo "✅ Integration tests: PASS" 
+	@echo "✅ Integration tests: PASS"
 	@echo "✅ E2E tests: PASS"
 	@echo "✅ Coverage threshold: PASS"
 	@echo "✅ Linting: PASS"
@@ -229,4 +234,4 @@ help:
 	@echo "  clean-e2e  - Clean up e2e test containers and processes"
 	@echo "  clean-all  - Clean all containers and images"
 	@echo "  help       - Show this help message"
-	@echo "" 
+	@echo ""
