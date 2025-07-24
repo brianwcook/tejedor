@@ -80,7 +80,7 @@ $CONTAINER_ENGINE run -d --name tejedor-test-pypi -p 8098:8080 tejedor-test-pypi
 # Wait for PyPI server to be ready
 print_status "Waiting for PyPI server to be ready..."
 for i in {1..30}; do
-    if curl -f http://localhost:8098/simple/ >/dev/null 2>&1; then
+    if timeout 10 curl -4 -f http://127.0.0.1:8098/simple/ >/dev/null 2>&1; then
         print_status "PyPI server is ready"
         break
     fi
@@ -104,7 +104,7 @@ cd e2e
 cat > config.json << EOF
 {
   "public_pypi_url": "https://pypi.org/simple/",
-  "private_pypi_url": "http://localhost:8098/simple/",
+  "private_pypi_url": "http://127.0.0.1:8098/simple/",
   "port": 8099,
   "cache_enabled": false,
   "cache_size": 100,
@@ -119,7 +119,7 @@ TEJEDOR_PID=$!
 # Wait for tejedor to be ready
 print_status "Waiting for tejedor proxy to be ready..."
 for i in {1..15}; do
-    if curl -f http://localhost:8099/simple/ >/dev/null 2>&1; then
+    if timeout 10 curl -4 -f http://127.0.0.1:8099/simple/ >/dev/null 2>&1; then
         print_status "Tejedor proxy is ready"
         break
     fi
@@ -139,4 +139,4 @@ print_status "Tejedor PID: $TEJEDOR_PID"
 print_status "Test environment is running. Press Ctrl+C to stop."
 print_status "Proxy PID: $TEJEDOR_PID"
 print_status "Container: tejedor-test-pypi"
-wait $TEJEDOR_PID 
+wait $TEJEDOR_PID

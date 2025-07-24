@@ -24,6 +24,7 @@ The PyPI Proxy is a Go application that implements a proxy server for the Python
    - Must handle package index requests (`/simple/`)
    - Must handle package page requests (`/simple/{package}/`)
    - Must handle package file requests (`/packages/{file}`)
+   - Must handle direct file requests (`/{file}` for wheel files, tar.gz, zip)
    - Must return appropriate HTTP status codes and content types
 
 4. **Caching System**
@@ -278,7 +279,9 @@ Example: `test_package` → `test-package`
 
 ### File Path Handling
 
-Package files are served from the `/packages/` path:
+Package files are served from multiple paths:
+- `/packages/{file}` - Standard package file path
+- `/{file}` - Direct file requests for wheel files, tar.gz, and zip files
 - File paths are preserved as-is
 - Package names are extracted from filenames
 - Source determination uses extracted package name
@@ -461,4 +464,4 @@ Package files are served from the `/packages/` path:
 
 This project is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0).
 
-Copyright (C) 2024 Brian Cook <bcook@redhat.com> 
+Copyright (C) 2024 Brian Cook <bcook@redhat.com>

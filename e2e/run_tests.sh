@@ -36,7 +36,7 @@ print_status "Waiting for environment to be ready..."
 sleep 45
 
 # Check if proxy is running
-if ! curl -f http://localhost:8099/simple/ >/dev/null 2>&1; then
+if ! timeout 10 curl -4 -f http://127.0.0.1:8099/simple/ >/dev/null 2>&1; then
     print_error "Proxy is not running"
     exit 1
 fi
@@ -45,7 +45,7 @@ print_status "Test environment is ready!"
 
 # Run the Go tests
 print_status "Running Go-based E2E tests..."
-go test -v -timeout 5m .
+go test -v -timeout 5m -tags=e2e .
 
 print_status "🎉 All tests completed!"
 print_status ""
@@ -64,4 +64,4 @@ print_status "  • Check proxy logs: ps aux | grep tejedor"
 print_status "  • Inspect container: podman exec -it tejedor-test-pypi bash"
 print_status "  • Test manually: curl http://localhost:8099/simple/"
 print_status ""
-print_status "⚠️  Note: Test environment is still running. Clean up when done." 
+print_status "⚠️  Note: Test environment is still running. Clean up when done."

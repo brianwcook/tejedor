@@ -7,7 +7,7 @@ A Go application that acts as a proxy for PyPI (Python Package Index), implement
 ## Features
 
 - **Dual Index Support**: Routes requests between public PyPI and a private index
-- **Intelligent Routing**: 
+- **Intelligent Routing**:
   - Packages only in public PyPI → served from public index
   - Packages in both indexes → served from private index (priority)
   - Packages only in private index → served from private index
@@ -341,6 +341,12 @@ Cache statistics are logged when the server starts.
    ```
    Solution: Check network connectivity and firewall settings.
 
+4. **File download errors (404 Not Found)**:
+   ```
+   ERROR: HTTP error 404 while getting http://localhost:8080/package-version.whl
+   ```
+   Solution: This issue has been fixed in recent versions. The proxy now correctly handles direct file requests for wheel files and other package distributions. Make sure you're using the latest version of the proxy.
+
 ### Logs
 
 The proxy logs all HTTP requests and startup information. Check the console output for:
@@ -424,4 +430,4 @@ go install github.com/securego/gosec/v2/cmd/gosec@latest
 
 **Note**: The Makefile uses full paths to installed binaries to ensure consistency. If you get "command not found" errors, make sure you've installed the tools using the commands above.
 
-This will help minimize discrepancies between local and CI runs. 
+This will help minimize discrepancies between local and CI runs.
