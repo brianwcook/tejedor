@@ -1,6 +1,6 @@
 {
   "public_pypi_url": "https://pypi.org/simple/",
-  "private_pypi_url": "http://localhost:8098/simple/",
+  "private_pypi_url": "http://127.0.0.1:8098/simple/",
   "port": 8099,
   "cache_enabled": false,
   "cache_size": 100,

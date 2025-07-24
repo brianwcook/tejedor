@@ -1,3 +1,6 @@
+//go:build e2e
+// +build e2e
+
 package e2e
 
 import (
@@ -14,7 +17,7 @@ import (
 
 const (
 	proxyURL    = "http://localhost:8099"
-	privateURL  = "http://localhost:8098"
+	privateURL  = "http://127.0.0.1:8098"
 	testTimeout = 30 * time.Second
 )
 

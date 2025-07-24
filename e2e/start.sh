@@ -9,4 +9,4 @@ python3 populate_packages.py
 
 # Start PyPI server
 echo "Starting PyPI server on port 8080..."
-pypi-server run -p 8080 packages 
+pypi-server run -p 8080 -i 0.0.0.0 packages
