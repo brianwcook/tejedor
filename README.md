@@ -49,6 +49,42 @@ This project maintains high code quality standards with:
 - **Race Detection**: All tests run with `-race` flag to detect race conditions
 - **Security Scanning**: Uses `gosec` for security vulnerability detection
 
+## Hermeto Integration
+
+Tejedor integrates with Hermeto (Cachi2) through a Tekton task that provides PyPI proxy functionality for Python dependency prefetching.
+
+### Tekton Task: `prefetch-dependencies-tejedor`
+
+The task automatically detects Python pip dependencies and starts Tejedor as a sidecar container to proxy PyPI requests.
+
+**Features:**
+- Automatic Python dependency detection
+- Tejedor sidecar with configurable private PyPI URL
+- Optional proxy server support
+- Wheel download support for private packages
+- Source-only filtering for public packages
+
+**Usage:**
+```yaml
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: prefetch-dependencies-tejedor
+spec:
+  params:
+    - name: input
+      value: "pip"
+    - name: private-pypi-url
+      value: "https://your-private-pypi.com/simple/"
+    - name: proxy-server
+      value: "http://proxy.company.com:8080"  # optional
+```
+
+**Documentation:**
+- [Task Documentation](task/prefetch-dependencies-tejedor/0.2/README.md)
+- [Local Testing Guide](task/prefetch-dependencies-tejedor/0.2/LOCAL_TESTING.md)
+- [Test Example](task/prefetch-dependencies-tejedor/0.2/test-example.yaml)
+
 ## Quick Start
 
 ### Prerequisites

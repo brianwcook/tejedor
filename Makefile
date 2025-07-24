@@ -10,6 +10,16 @@ build:
 	@echo "Building tejedor binary..."
 	go build -o tejedor .
 
+# Build Docker image
+docker-build:
+	@echo "Building Tejedor Docker image..."
+	podman build -t tejedor:latest .
+
+# Build and push Docker image
+docker-push: docker-build
+	@echo "Building and pushing Tejedor Docker image..."
+	@./scripts/build-and-push.sh
+
 # Run unit tests
 test:
 	@echo "Running unit tests..."
@@ -52,6 +62,36 @@ e2e-test-ci: clean-e2e
 	@podman stop tejedor-test-pypi tejedor-proxy 2>/dev/null || true
 	@podman rm -f tejedor-test-pypi tejedor-proxy 2>/dev/null || true
 	@echo "🎉 E2E tests completed!"
+
+# Run kind-based Hermeto integration tests
+kind-hermeto-test:
+	@echo "🚀 Starting Kind + Hermeto E2E tests..."
+	@cd e2e && ./kind-hermeto-test.sh
+	@echo "🎉 Kind + Hermeto tests completed!"
+
+# Run simple kind-based Hermeto integration tests
+kind-hermeto-test-simple:
+	@echo "🚀 Starting Simple Kind + Hermeto E2E tests..."
+	@cd e2e && ./kind-hermeto-test-simple.sh
+	@echo "🎉 Simple Kind + Hermeto tests completed!"
+
+# Run full kind-based Hermeto + Tejedor integration tests
+kind-hermeto-test-full:
+	@echo "🚀 Starting Full Kind + Hermeto + Tejedor E2E tests..."
+	@cd e2e && ./kind-hermeto-test-full.sh
+	@echo "🎉 Full Kind + Hermeto + Tejedor tests completed!"
+
+# Run container-based Hermeto integration tests (alternative to kind)
+hermeto-e2e-test:
+	@echo "🚀 Starting Container-based Hermeto E2E tests..."
+	@cd e2e && ./hermeto-e2e-test.sh
+	@echo "🎉 Container-based Hermeto tests completed!"
+
+# Run local Hermeto integration tests (no containers required)
+hermeto-local-test:
+	@echo "🚀 Starting Local Hermeto E2E tests..."
+	@cd e2e && ./hermeto-local-test.sh
+	@echo "🎉 Local Hermeto tests completed!"
 
 # Run all CI checks locally (same as GitHub Actions)
 ci-ready: clean-all
@@ -103,19 +143,9 @@ ci-ready: clean-all
 	fi
 	@echo "✅ bc found"
 	
-	@echo "Installing golangci-lint v1.64.8 (same as CI)..."
-	@echo "Installing golangci-lint v1.64.8..."; \
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8; \
-	echo "✅ golangci-lint v1.64.8 installed"
-	
-	@echo "Installing gosec (same as CI)..."
-	@if ! command -v gosec &> /dev/null; then \
-		echo "Installing gosec..."; \
-		go install github.com/securego/gosec/v2/cmd/gosec@latest; \
-		echo "✅ gosec installed"; \
-	else \
-		echo "✅ gosec already installed: $$(gosec --version | head -n1)"; \
-	fi
+	@echo "Installing tools dependencies (using tools/go.mod)..."
+	@cd tools && go mod download
+	@echo "✅ Tools dependencies installed"
 	@echo ""
 	
 	@echo "📦 Step 2/8: Installing dependencies..."
@@ -158,38 +188,28 @@ ci-ready: clean-all
 	@echo ""
 	
 	@echo "🔍 Step 8/8: Running linting (same as CI)..."
-	@if command -v golangci-lint &> /dev/null; then \
-		golangci-lint run; \
-		echo "✅ Linting passed"; \
-	else \
-		echo "⚠️  golangci-lint not found, skipping linting"; \
-		echo "   Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8"; \
-	fi
+	@go run github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8 run
+	@echo "✅ Linting passed"
 	@echo ""
 	
-	@echo "🔒 Step 8/9: Running security scan (same as CI)..."
-	@if command -v gosec &> /dev/null; then \
-		gosec -fmt=json -out=security-report.json ./...; \
-		if [ -f security-report.json ]; then \
-			ISSUES=$$(jq -r '.Issues | length' security-report.json 2>/dev/null || echo "0"); \
-			if [ "$$ISSUES" -gt 0 ]; then \
-				echo "❌ Found $$ISSUES security issues:"; \
-				jq -r '.Issues[] | "\(.severity): \(.details) in \(.file):\(.line)"' security-report.json; \
-				exit 1; \
-			else \
-				echo "✅ No security issues found"; \
-			fi; \
-		else \
-			echo "❌ Security report not generated"; \
+	@echo "🔒 Step 9/9: Running security scan (same as CI)..."
+	@go run github.com/securego/gosec/v2/cmd/gosec@v2.19.0 -fmt=json -out=security-report.json -exclude=main.go ./cache ./config ./pypi ./proxy ./integration
+	@if [ -f security-report.json ]; then \
+		ISSUES=$$(jq -r '.Issues | length' security-report.json 2>/dev/null || echo "0"); \
+		if [ "$$ISSUES" -gt 0 ]; then \
+			echo "❌ Found $$ISSUES security issues:"; \
+			jq -r '.Issues[] | "\(.severity): \(.details) in \(.file):\(.line)"' security-report.json; \
 			exit 1; \
+		else \
+			echo "✅ No security issues found"; \
 		fi; \
 	else \
-		echo "⚠️  gosec not found, skipping security scan"; \
-		echo "   Install with: go install github.com/securego/gosec/v2/cmd/gosec@latest"; \
+		echo "❌ Security report not generated"; \
+		exit 1; \
 	fi
 	@echo ""
 	
-	@echo "🏗️ Step 9/9: Building for all platforms (same as CI)..."
+	@echo "🏗️ Step 10/10: Building for all platforms (same as CI)..."
 	@GOOS=linux GOARCH=amd64 go build -o pypi-proxy-linux-amd64 .
 	@GOOS=linux GOARCH=arm64 go build -o pypi-proxy-linux-arm64 .
 	@GOOS=darwin GOARCH=amd64 go build -o pypi-proxy-darwin-amd64 .
@@ -216,6 +236,29 @@ ci-ready: clean-all
 	@echo ""
 	@echo "🚀 You can now push with confidence!"
 
+# Run linting using go run
+lint:
+	@echo "🔍 Running linting..."
+	@go run github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8 run
+	@echo "✅ Linting passed"
+
+# Run security scan using go run
+security:
+	@echo "🔒 Running security scan..."
+	@go run github.com/securego/gosec/v2/cmd/gosec@v2.19.0 -fmt=json -out=security-report.json -exclude=main.go ./cache ./config ./pypi ./proxy ./integration
+	@if [ -f security-report.json ]; then \
+		ISSUES=$$(jq -r '.Issues | length' security-report.json 2>/dev/null || echo "0"); \
+		if [ "$$ISSUES" -gt 0 ]; then \
+			echo "❌ Found $$ISSUES security issues:"; \
+			jq -r '.Issues[] | "\(.severity): \(.details) in \(.file):\(.line)"' security-report.json; \
+			exit 1; \
+		else \
+			echo "✅ No security issues found"; \
+		fi; \
+	else \
+		echo "❌ Security report not generated"; \
+		exit 1; \
+	fi
 
 # Show help
 help:
@@ -223,10 +266,18 @@ help:
 	@echo ""
 	@echo "  build      - Build the tejedor binary"
 	@echo "  test       - Run unit tests"
+	@echo "  lint       - Run linting (using tools/go.mod)"
+	@echo "  security   - Run security scan (using tools/go.mod)"
 	@echo "  e2e-test   - Run end-to-end tests (leaves environment running)"
 	@echo "  e2e-test-ci - Run end-to-end tests in CI (with cleanup)"
+	@echo "  kind-hermeto-test-simple - Run simple Kind + Hermeto integration tests"
+	@echo "  kind-hermeto-test-full   - Run full Kind + Hermeto + Tejedor integration tests"
 	@echo "  ci-ready   - Run ALL CI checks locally (installs tools, tests, builds, lint, security)"
 	@echo "  clean-e2e  - Clean up e2e test containers and processes"
 	@echo "  clean-all  - Clean all containers and images"
 	@echo "  help       - Show this help message"
-	@echo "" 
+	@echo ""
+	@echo "📋 Tool Management:"
+	@echo "  • Tools use 'go run' approach (no global installations)"
+	@echo "  • Use 'make lint' or 'make security' to run individual tools"
+	@echo "  • Tools are automatically downloaded when needed" 

@@ -5,6 +5,7 @@ package proxy
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"python-index-proxy/cache"
 	"python-index-proxy/config"
@@ -56,11 +57,15 @@ func (p *Proxy) determineSource(ctx context.Context, packageName string, publicE
 	var cachedPage cache.PackagePageInfo
 	var found bool
 
+	// Log the routing decision
+	log.Printf("ROUTING: /simple/%s/ - publicExists=%v, privateExists=%v", packageName, publicExists, privateExists)
+
 	switch {
 	case privateExists:
 		// If package exists in private index, serve from there
 		sourceIndex = p.config.PrivatePyPIURL
 		baseURL = p.config.PrivatePyPIURL
+		log.Printf("ROUTING: /simple/%s/ → LOCAL_PYPI (%s)", packageName, p.config.PrivatePyPIURL)
 
 		// Check cache for private package page
 		if p.cache.IsEnabled() {
@@ -70,6 +75,7 @@ func (p *Proxy) determineSource(ctx context.Context, packageName string, publicE
 		// If package only exists in public index, serve from there
 		sourceIndex = p.config.PublicPyPIURL
 		baseURL = p.config.PublicPyPIURL
+		log.Printf("ROUTING: /simple/%s/ → PUBLIC_PYPI (%s)", packageName, p.config.PublicPyPIURL)
 
 		// Check cache for public package page
 		if p.cache.IsEnabled() {
@@ -77,16 +83,20 @@ func (p *Proxy) determineSource(ctx context.Context, packageName string, publicE
 		}
 	default:
 		// Package doesn't exist in either index
+		log.Printf("ROUTING: /simple/%s/ → NOT_FOUND (neither local nor public)", packageName)
 		return "", "", nil, false, nil
 	}
 
 	// If found in cache, use cached content
 	if found {
+		log.Printf("ROUTING: /simple/%s/ → CACHED (from %s)", packageName, sourceIndex)
 		packagePage = cachedPage.HTML
 	} else {
 		// Get package page from the determined source
+		log.Printf("ROUTING: /simple/%s/ → FETCHING (from %s)", packageName, sourceIndex)
 		packagePage, err = p.client.GetPackagePage(ctx, baseURL, packageName)
 		if err != nil {
+			log.Printf("ROUTING: /simple/%s/ → ERROR (from %s): %v", packageName, sourceIndex, err)
 			return "", "", nil, false, fmt.Errorf("error retrieving package page: %w", err)
 		}
 
@@ -212,12 +222,15 @@ func (p *Proxy) HandleFile(w http.ResponseWriter, r *http.Request) {
 		// If package exists in private index, serve from there
 		sourceIndex = p.config.PrivatePyPIURL
 		fileBaseURL = strings.TrimSuffix(strings.TrimSuffix(p.config.PrivatePyPIURL, "/simple/"), "/simple")
+		log.Printf("FILE: /packages/%s → LOCAL_PYPI (%s)", filePath, sourceIndex)
 	case publicExists:
 		// If package only exists in public index, serve from there
 		sourceIndex = p.config.PublicPyPIURL
 		fileBaseURL = publicPyPIFileBaseURL
+		log.Printf("FILE: /packages/%s → PUBLIC_PYPI (%s)", filePath, sourceIndex)
 	default:
 		// Package doesn't exist in either index
+		log.Printf("FILE: /packages/%s → NOT_FOUND (neither local nor public)", filePath)
 		http.Error(w, "Package not found", http.StatusNotFound)
 		return
 	}

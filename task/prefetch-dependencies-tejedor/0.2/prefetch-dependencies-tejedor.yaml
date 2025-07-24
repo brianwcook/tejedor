@@ -122,7 +122,7 @@ spec:
       - $(params.input)
 
   - name: start-tejedor-sidecar
-    image: quay.io/konflux-ci/tejedor:latest
+    image: quay.io/konflux-ci/tejedor:latest@sha256:YOUR_IMAGE_SHA256_HERE
     script: |
       #!/bin/bash
       set -euo pipefail
@@ -494,7 +494,7 @@ spec:
 
   sidecars:
   - name: tejedor-sidecar
-    image: quay.io/konflux-ci/tejedor:latest
+    image: quay.io/konflux-ci/tejedor:latest@sha256:YOUR_IMAGE_SHA256_HERE
     script: |
       #!/bin/bash
       set -euo pipefail
