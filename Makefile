@@ -30,17 +30,34 @@ test-e2e:
 	@echo "Running e2e tests..."
 	go test -tags=e2e ./e2e
 
-# Clean up any existing e2e test containers and processes
-clean-e2e:
-	@echo "Cleaning up existing e2e test containers and processes..."
+# Shared cleanup function
+cleanup-test-env:
+	@echo "🧹 Comprehensive test environment cleanup..."
+	@echo "Stopping and removing test containers..."
 	@podman stop test-pypi-server tejedor-test-pypi tejedor-proxy 2>/dev/null || true
 	@podman rm -f test-pypi-server tejedor-test-pypi tejedor-proxy 2>/dev/null || true
+	@echo "Killing any tejedor processes..."
 	@pgrep -f "tejedor.*config\.json" | xargs -r kill -9 2>/dev/null || true
 	@pgrep -f "tejedor.*test-config\.yaml" | xargs -r kill -9 2>/dev/null || true
-	@echo "✅ Cleanup complete - letting podman handle port forwarding cleanup"
+	@pgrep -f "tejedor" | xargs -r kill -9 2>/dev/null || true
+	@echo "Cleaning up any kind clusters that might be using ports..."
+	@kind delete cluster --name tejedor-test 2>/dev/null || true
+	@echo "Cleaning up any kubectl resources..."
+	@kubectl delete pods --all --force --grace-period=0 2>/dev/null || true
+	@kubectl delete services --all --force --grace-period=0 2>/dev/null || true
+	@kubectl delete taskruns --all --force --grace-period=0 2>/dev/null || true
+	@kubectl delete tasks --all --force --grace-period=0 2>/dev/null || true
+	@echo "Killing any tejedor processes using test ports..."
+	@lsof -i:8098 -i:8099 -i:8080 | grep tejedor | awk '{print $$2}' | xargs -r kill -9 2>/dev/null || true
+	@echo "Waiting for ports to be released..."
+	@sleep 3
+	@echo "✅ Comprehensive cleanup complete"
+
+# Clean up any existing e2e test containers and processes
+clean-e2e: cleanup-test-env
 
 # Clean all containers and images
-clean-all: clean-e2e
+clean-all: cleanup-test-env
 	@echo "Cleaning all test containers and images..."
 	@podman rmi test-pypi-server tejedor-test-pypi 2>/dev/null || true
 	@echo "✅ All cleanup complete"
@@ -103,7 +120,7 @@ ci-ready: clean-all
 	@echo "🚀 Running all CI checks locally (matching GitHub Actions)..."
 	@echo ""
 
-	@echo "🔧 Step 1/8: Checking and installing required tools..."
+	@echo "🔧 Step 1/9: Checking and installing required tools..."
 	@echo "Checking Go installation..."
 	@if ! command -v go &> /dev/null; then \
 		echo "❌ Go is not installed or not in PATH"; \
@@ -154,27 +171,36 @@ ci-ready: clean-all
 
 	@echo ""
 
-	@echo "📦 Step 2/8: Installing dependencies..."
+	@echo "📦 Step 2/9: Installing dependencies..."
 	@go mod download
 	@echo "✅ Dependencies installed"
 	@echo ""
 
-	@echo "🧪 Step 3/8: Running unit tests (same as CI)..."
+	@echo "🧪 Step 3/9: Running unit tests (same as CI)..."
 	@go test -v -race -coverprofile=coverage.out ./cache ./config ./pypi ./proxy ./integration
 	@echo "✅ Unit tests passed"
 	@echo ""
 
-	@echo "🔗 Step 4/8: Running integration tests (same as CI)..."
+	@echo "🔗 Step 4/9: Running integration tests (same as CI)..."
 	@CI=true go test -v -race -coverprofile=integration-coverage.out ./integration
 	@echo "✅ Integration tests passed"
 	@echo ""
 
-	@echo "🐳 Step 5/8: Running e2e tests (same as CI)..."
+	@echo "🐳 Step 5/9: Running e2e tests (same as CI)..."
 	@make e2e-test-ci
 	@echo "✅ E2E tests passed"
 	@echo ""
 
-	@echo "📊 Step 6/8: Merging coverage reports (same as CI)..."
+	@echo "🔧 Step 6/9: Cleaning up before Kind tests..."
+	@make cleanup-test-env
+	@echo ""
+
+	@echo "☸️ Step 7/9: Running Kind + Hermeto tests (same as CI)..."
+	@make kind-hermeto-test-simple
+	@echo "✅ Kind + Hermeto tests passed"
+	@echo ""
+
+	@echo "📊 Step 8/9: Merging coverage reports (same as CI)..."
 	@echo "mode: set" > combined-coverage.out
 	@tail -n +2 coverage.out >> combined-coverage.out
 	@tail -n +2 integration-coverage.out >> combined-coverage.out
@@ -182,7 +208,7 @@ ci-ready: clean-all
 	@echo "✅ Coverage reports merged"
 	@echo ""
 
-	@echo "🎯 Step 7/8: Checking coverage threshold (same as CI)..."
+	@echo "🎯 Step 9/9: Checking coverage threshold (same as CI)..."
 	@COVERAGE=$$(go tool cover -func=combined-coverage.out | grep total | awk '{print $$3}' | sed 's/%//'); \
 	echo "Code coverage: $${COVERAGE}%"; \
 	if (( $$(echo "$${COVERAGE} < 80" | bc -l) )); then \
@@ -193,12 +219,12 @@ ci-ready: clean-all
 	fi
 	@echo ""
 
-	@echo "🔍 Step 8/8: Running linting (same as CI)..."
+	@echo "🔍 Step 10/10: Running linting (same as CI)..."
 	@go run github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8 run
 	@echo "✅ Linting passed"
 	@echo ""
-	@echo "🔒 Step 9/9: Running security scan (same as CI)..."
-	@go run github.com/securego/gosec/v2/cmd/gosec@v2.19.0 -fmt=json -out=security-report.json -exclude=main.go ./cache ./config ./pypi ./proxy ./integration
+	@echo "🔒 Step 11/11: Running security scan (same as CI)..."
+	@go run github.com/securego/gosec/v2/cmd/gosec@v2.22.7 -fmt=json -out=security-report.json -exclude=main.go ./cache ./config ./pypi ./proxy ./integration
 	@if [ -f security-report.json ]; then \
 		ISSUES=$$(jq -r '.Issues | length' security-report.json 2>/dev/null || echo "0"); \
 		if [ "$$ISSUES" -gt 0 ]; then \
@@ -213,7 +239,7 @@ ci-ready: clean-all
 		exit 1; \
 	fi
 	@echo ""
-	@echo "🏗️ Step 10/10: Building for all platforms (same as CI)..."
+	@echo "🏗️ Step 12/12: Building for all platforms (same as CI)..."
 
 	@GOOS=linux GOARCH=amd64 go build -o pypi-proxy-linux-amd64 .
 	@GOOS=linux GOARCH=arm64 go build -o pypi-proxy-linux-arm64 .
@@ -234,6 +260,7 @@ ci-ready: clean-all
 	@echo "✅ Unit tests: PASS"
 	@echo "✅ Integration tests: PASS"
 	@echo "✅ E2E tests: PASS"
+	@echo "✅ Kind + Hermeto tests: PASS"
 	@echo "✅ Coverage threshold: PASS"
 	@echo "✅ Linting: PASS"
 	@echo "✅ Security scan: PASS"
@@ -250,7 +277,7 @@ lint:
 # Run security scan using go run
 security:
 	@echo "🔒 Running security scan..."
-	@go run github.com/securego/gosec/v2/cmd/gosec@v2.19.0 -fmt=json -out=security-report.json -exclude=main.go ./cache ./config ./pypi ./proxy ./integration
+	@go run github.com/securego/gosec/v2/cmd/gosec@v2.22.7 -fmt=json -out=security-report.json -exclude=main.go ./cache ./config ./pypi ./proxy ./integration
 	@if [ -f security-report.json ]; then \
 		ISSUES=$$(jq -r '.Issues | length' security-report.json 2>/dev/null || echo "0"); \
 		if [ "$$ISSUES" -gt 0 ]; then \
@@ -277,9 +304,10 @@ help:
 	@echo "  e2e-test-ci - Run end-to-end tests in CI (with cleanup)"
 	@echo "  kind-hermeto-test-simple - Run simple Kind + Hermeto integration tests"
 	@echo "  kind-hermeto-test-full   - Run full Kind + Hermeto + Tejedor integration tests"
-	@echo "  ci-ready   - Run ALL CI checks locally (installs tools, tests, builds, lint, security)"
+	@echo "  ci-ready   - Run ALL CI checks locally (includes Kind tests, tools, tests, builds, lint, security)"
 	@echo "  clean-e2e  - Clean up e2e test containers and processes"
 	@echo "  clean-all  - Clean all containers and images"
+	@echo "  cleanup-test-env - Comprehensive cleanup of all test environments"
 	@echo "  help       - Show this help message"
 	@echo ""
 	@echo "📋 Tool Management:"

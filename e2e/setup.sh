@@ -75,12 +75,12 @@ $CONTAINER_ENGINE build -t tejedor-test-pypi -f Dockerfile .
 
 # Start the test PyPI server
 print_status "Starting test PyPI server..."
-$CONTAINER_ENGINE run -d --name tejedor-test-pypi -p 8098:8080 tejedor-test-pypi
+$CONTAINER_ENGINE run -d --name tejedor-test-pypi -p 8098:8098 tejedor-test-pypi
 
 # Wait for PyPI server to be ready
 print_status "Waiting for PyPI server to be ready..."
 for i in {1..30}; do
-    if timeout 10 curl -4 -f http://127.0.0.1:8098/simple/ >/dev/null 2>&1; then
+    if curl -f http://127.0.0.1:8098/simple/ >/dev/null 2>&1; then
         print_status "PyPI server is ready"
         break
     fi
@@ -119,7 +119,7 @@ TEJEDOR_PID=$!
 # Wait for tejedor to be ready
 print_status "Waiting for tejedor proxy to be ready..."
 for i in {1..15}; do
-    if timeout 10 curl -4 -f http://127.0.0.1:8099/simple/ >/dev/null 2>&1; then
+    if curl -f http://127.0.0.1:8099/simple/ >/dev/null 2>&1; then
         print_status "Tejedor proxy is ready"
         break
     fi
@@ -131,8 +131,8 @@ for i in {1..15}; do
 done
 
 print_status "✅ Test environment is ready!"
-print_status "Proxy URL: http://localhost:8099"
-print_status "Private PyPI URL: http://localhost:8098"
+print_status "Proxy URL: http://127.0.0.1:8099"
+print_status "Private PyPI URL: http://127.0.0.1:8098"
 print_status "Tejedor PID: $TEJEDOR_PID"
 
 # Keep the script running to maintain the test environment

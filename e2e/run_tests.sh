@@ -33,13 +33,35 @@ SETUP_PID=$!
 
 # Wait for environment to be ready
 print_status "Waiting for environment to be ready..."
-sleep 45
+sleep 30
 
-# Check if proxy is running
-if ! timeout 10 curl -4 -f http://127.0.0.1:8099/simple/ >/dev/null 2>&1; then
-    print_error "Proxy is not running"
-    exit 1
-fi
+# Wait for PyPI server to be ready
+print_status "Waiting for PyPI server to be ready..."
+for i in {1..30}; do
+    if curl -f http://127.0.0.1:8098/simple/ >/dev/null 2>&1; then
+        print_status "PyPI server is ready"
+        break
+    fi
+    if [ $i -eq 30 ]; then
+        print_error "PyPI server failed to start"
+        exit 1
+    fi
+    sleep 2
+done
+
+# Wait for tejedor proxy to be ready
+print_status "Waiting for tejedor proxy to be ready..."
+for i in {1..30}; do
+    if curl -f http://127.0.0.1:8099/simple/ >/dev/null 2>&1; then
+        print_status "Tejedor proxy is ready"
+        break
+    fi
+    if [ $i -eq 30 ]; then
+        print_error "Tejedor proxy failed to start"
+        exit 1
+    fi
+    sleep 2
+done
 
 print_status "Test environment is ready!"
 
@@ -51,8 +73,8 @@ print_status "🎉 All tests completed!"
 print_status ""
 print_status "📋 Test Environment Management:"
 print_status "  • Test environment is still running for inspection"
-print_status "  • Proxy URL: http://localhost:8099"
-print_status "  • Private PyPI URL: http://localhost:8098"
+print_status "  • Proxy URL: http://127.0.0.1:8099"
+print_status "  • Private PyPI URL: http://127.0.0.1:8098"
 print_status "  • Tejedor PID: $SETUP_PID"
 print_status ""
 print_status "🧹 To clean up the test environment:"
@@ -62,6 +84,6 @@ print_status ""
 print_status "🔍 To inspect the test environment:"
 print_status "  • Check proxy logs: ps aux | grep tejedor"
 print_status "  • Inspect container: podman exec -it tejedor-test-pypi bash"
-print_status "  • Test manually: curl http://localhost:8099/simple/"
+print_status "  • Test manually: curl http://127.0.0.1:8099/simple/"
 print_status ""
 print_status "⚠️  Note: Test environment is still running. Clean up when done."

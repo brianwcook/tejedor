@@ -11,7 +11,7 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/simple/"]
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8080/simple/"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -33,7 +33,7 @@ services:
       - PORT=8081
       - CACHE_ENABLED=false
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8081/simple/"]
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8081/simple/"]
       interval: 10s
       timeout: 5s
       retries: 5

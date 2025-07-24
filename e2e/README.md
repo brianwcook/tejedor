@@ -91,7 +91,7 @@ go build -o tejedor ../..
 Tests packages that exist only in the private PyPI server:
 
 ```bash
-pip install flask click jinja2 -i http://localhost:8081/simple/
+pip install flask click jinja2 -i http://127.0.0.1:8081/simple/
 ```
 
 **Expected behavior**: Packages served from private PyPI, can include both source and wheel distributions.
@@ -101,7 +101,7 @@ pip install flask click jinja2 -i http://localhost:8081/simple/
 Tests packages that exist only in public PyPI:
 
 ```bash
-pip install numpy pandas matplotlib -i http://localhost:8081/simple/
+pip install numpy pandas matplotlib -i http://127.0.0.1:8081/simple/
 ```
 
 **Expected behavior**: Packages served from public PyPI, **filtered to source distributions only** (no wheel files).
@@ -111,7 +111,7 @@ pip install numpy pandas matplotlib -i http://localhost:8081/simple/
 Tests packages from both sources:
 
 ```bash
-pip install flask numpy requests click -i http://localhost:8081/simple/
+pip install flask numpy requests click -i http://127.0.0.1:8081/simple/
 ```
 
 **Expected behavior**: 
@@ -160,10 +160,10 @@ To manually verify the filtering behavior:
 
 ```bash
 # Check numpy (public) - should have no .whl files
-curl http://localhost:8081/simple/numpy/
+curl http://127.0.0.1:8081/simple/numpy/
 
 # Check flask (private) - can have .whl files
-curl http://localhost:8081/simple/flask/
+curl http://127.0.0.1:8081/simple/flask/
 ```
 
 ## Architecture

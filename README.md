@@ -194,25 +194,25 @@ Options:
 
 Once running, the proxy exposes the Simple Repository API at the configured port:
 
-- **Package Index**: `http://localhost:8080/simple/`
-- **Package Page**: `http://localhost:8080/simple/{package_name}/`
-- **Package Files**: `http://localhost:8080/packages/{file_path}`
+- **Package Index**: `http://127.0.0.1:8080/simple/`
+- **Package Page**: `http://127.0.0.1:8080/simple/{package_name}/`
+- **Package Files**: `http://127.0.0.1:8080/packages/{file_path}`
 
 ### Example Usage
 
 1. **Install a package using pip**:
 ```bash
-pip install --index-url http://localhost:8080/simple/ pycups
+pip install --index-url http://127.0.0.1:8080/simple/ pycups
 ```
 
 2. **Install a package that exists in both indexes**:
 ```bash
-pip install --index-url http://localhost:8080/simple/ pydantic
+pip install --index-url http://127.0.0.1:8080/simple/ pydantic
 ```
 
 3. **Check which index served a package**:
 ```bash
-curl -I http://localhost:8080/simple/pycups/
+curl -I http://127.0.0.1:8080/simple/pycups/
 # Look for X-PyPI-Source header in response
 ```
 
@@ -343,7 +343,7 @@ Cache statistics are logged when the server starts.
 
 4. **File download errors (404 Not Found)**:
    ```
-   ERROR: HTTP error 404 while getting http://localhost:8080/package-version.whl
+   ERROR: HTTP error 404 while getting http://127.0.0.1:8080/package-version.whl
    ```
    Solution: This issue has been fixed in recent versions. The proxy now correctly handles direct file requests for wheel files and other package distributions. Make sure you're using the latest version of the proxy.
 

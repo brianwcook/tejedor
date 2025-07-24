@@ -162,7 +162,7 @@ spec:
       # Wait for Tejedor to be ready
       echo "Waiting for Tejedor to be ready..."
       for i in {1..30}; do
-        if curl -s http://localhost:8080/health > /dev/null 2>&1; then
+        if curl -s http://127.0.0.1:8080/health > /dev/null 2>&1; then
           echo "Tejedor is ready"
           break
         fi
@@ -345,7 +345,7 @@ spec:
                     {
                       type: "pip",
                       options: {
-                        index_url: "http://localhost:8080/simple/",
+                        index_url: "http://127.0.0.1:8080/simple/",
                         allow_wheels: true
                       }
                     }'
@@ -357,7 +357,7 @@ spec:
                       map(
                         if .type == "pip" then
                           .options = (.options // {}) + {
-                            index_url: "http://localhost:8080/simple/",
+                            index_url: "http://127.0.0.1:8080/simple/",
                             allow_wheels: true
                           }
                         else
@@ -367,7 +367,7 @@ spec:
                       .packages |= map(
                         if .type == "pip" then
                           .options = (.options // {}) + {
-                            index_url: "http://localhost:8080/simple/",
+                            index_url: "http://127.0.0.1:8080/simple/",
                             allow_wheels: true
                           }
                         else
@@ -375,7 +375,7 @@ spec:
                         end)
                     elif .type == "pip" then
                       .options = (.options // {}) + {
-                        index_url: "http://localhost:8080/simple/",
+                        index_url: "http://127.0.0.1:8080/simple/",
                         allow_wheels: true
                       }
                     else
