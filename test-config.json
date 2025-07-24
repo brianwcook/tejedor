@@ -4,5 +4,6 @@
   "port": 8099,
   "cache_enabled": false,
   "cache_size": 100,
-  "cache_ttl": 1
+  "cache_ttl": 1,
+  "public_only_packages": []
 }

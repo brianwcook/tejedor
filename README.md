@@ -11,6 +11,7 @@ A Go application that acts as a proxy for PyPI (Python Package Index), implement
   - Packages only in public PyPI → served from public index
   - Packages in both indexes → served from private index (priority)
   - Packages only in private index → served from private index
+  - Packages in `public_only_packages` list → always served from public index (even if they exist in private index)
 - **Security Protection**: Binary wheels are only served from private repositories, while only source distributions (sdists) are allowed from public PyPI, protecting users from compromised builds
 - **LRU Caching**: Configurable cache with TTL for package existence information
 - **Response Headers**: Includes `X-PyPI-Source` header indicating which index served the content
@@ -40,6 +41,19 @@ A Go application that acts as a proxy for PyPI (Python Package Index), implement
     }
   }
   ```
+
+### Public-Only Packages
+- Configure specific packages to always be served from the public PyPI index, even if they exist in your private index.
+- This is useful for update workflows where you want to check the public index for newer versions of certain packages.
+- Add packages to the `public_only_packages` list in your configuration:
+  ```yaml
+  public_only_packages:
+    - requests
+    - pydantic
+    - fastapi
+  ```
+- When a package is in this list, it will always be served from the public index, regardless of whether it exists in your private index.
+- If a public-only package doesn't exist in the public index, the request will return a 404 error.
 
 ## Code Quality
 
@@ -153,6 +167,10 @@ port: 8080
 cache_enabled: true
 cache_size: 20000
 cache_ttl_hours: 12
+public_only_packages:
+  - requests
+  - pydantic
+  - fastapi
 ```
 
 ### Environment Variables
@@ -165,6 +183,7 @@ export PYPI_PROXY_PORT="9090"
 export PYPI_PROXY_CACHE_ENABLED="true"
 export PYPI_PROXY_CACHE_SIZE="10000"
 export PYPI_PROXY_CACHE_TTL_HOURS="6"
+export PYPI_PROXY_PUBLIC_ONLY_PACKAGES="requests,pydantic,fastapi"
 ```
 
 ### Configuration Options
@@ -177,6 +196,7 @@ export PYPI_PROXY_CACHE_TTL_HOURS="6"
 | `cache_enabled` | bool | `true` | Enable/disable caching |
 | `cache_size` | int | `20000` | Maximum number of cache entries |
 | `cache_ttl_hours` | int | `12` | Cache TTL in hours |
+| `public_only_packages` | []string | `[]` | List of packages that should always be served from the public index |
 
 ## Usage
 

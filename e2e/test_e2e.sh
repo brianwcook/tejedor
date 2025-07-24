@@ -75,7 +75,7 @@ $CONTAINER_ENGINE build -t tejedor-test-pypi -f Dockerfile .
 
 # Start the test PyPI server
 print_status "Starting test PyPI server..."
-$CONTAINER_ENGINE run -d --name tejedor-test-pypi -p 8098:8080 tejedor-test-pypi
+$CONTAINER_ENGINE run -d --name tejedor-test-pypi -p 8098:8098 tejedor-test-pypi
 
 # Wait for PyPI server to be ready
 print_status "Waiting for PyPI server to be ready..."

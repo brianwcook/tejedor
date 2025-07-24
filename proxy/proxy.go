@@ -14,7 +14,10 @@ import (
 	"strings"
 )
 
-const publicPyPIFileBaseURL = "https://files.pythonhosted.org/"
+const (
+	publicPyPIFileBaseURL = "https://files.pythonhosted.org"
+	packagesPath          = "packages"
+)
 
 // Proxy represents the PyPI proxy server.
 type Proxy struct {
@@ -60,31 +63,47 @@ func (p *Proxy) determineSource(ctx context.Context, packageName string, publicE
 	// Log the routing decision
 	log.Printf("ROUTING: /simple/%s/ - publicExists=%v, privateExists=%v", packageName, publicExists, privateExists)
 
-	switch {
-	case privateExists:
-		// If package exists in private index, serve from there
-		sourceIndex = p.config.PrivatePyPIURL
-		baseURL = p.config.PrivatePyPIURL
-		log.Printf("ROUTING: /simple/%s/ → LOCAL_PYPI (%s)", packageName, p.config.PrivatePyPIURL)
+	// Check if this package should always use the public index
+	if p.config.IsPublicOnlyPackage(packageName) {
+		if publicExists {
+			sourceIndex = p.config.PublicPyPIURL
+			baseURL = p.config.PublicPyPIURL
+			log.Printf("ROUTING: /simple/%s/ → PUBLIC_PYPI (public-only package) (%s)", packageName, p.config.PublicPyPIURL)
 
-		// Check cache for private package page
-		if p.cache.IsEnabled() {
-			cachedPage, found = p.cache.GetPrivatePackagePage(packageName)
+			// Check cache for public package page
+			if p.cache.IsEnabled() {
+				cachedPage, found = p.cache.GetPublicPackagePage(packageName)
+			}
+		} else {
+			// Package doesn't exist in public index
+			return "", "", nil, false, nil
 		}
-	case publicExists:
-		// If package only exists in public index, serve from there
-		sourceIndex = p.config.PublicPyPIURL
-		baseURL = p.config.PublicPyPIURL
-		log.Printf("ROUTING: /simple/%s/ → PUBLIC_PYPI (%s)", packageName, p.config.PublicPyPIURL)
+	} else {
+		switch {
+		case privateExists:
+			// If package exists in private index, serve from there
+			sourceIndex = p.config.PrivatePyPIURL
+			baseURL = p.config.PrivatePyPIURL
+			log.Printf("ROUTING: /simple/%s/ → LOCAL_PYPI (%s)", packageName, p.config.PrivatePyPIURL)
 
-		// Check cache for public package page
-		if p.cache.IsEnabled() {
-			cachedPage, found = p.cache.GetPublicPackagePage(packageName)
+			// Check cache for private package page
+			if p.cache.IsEnabled() {
+				cachedPage, found = p.cache.GetPrivatePackagePage(packageName)
+			}
+		case publicExists:
+			// If package only exists in public index, serve from there
+			sourceIndex = p.config.PublicPyPIURL
+			baseURL = p.config.PublicPyPIURL
+			log.Printf("ROUTING: /simple/%s/ → PUBLIC_PYPI (%s)", packageName, p.config.PublicPyPIURL)
+
+			// Check cache for public package page
+			if p.cache.IsEnabled() {
+				cachedPage, found = p.cache.GetPublicPackagePage(packageName)
+			}
+		default:
+			// Package doesn't exist in either index
+			return "", "", nil, false, nil
 		}
-	default:
-		// Package doesn't exist in either index
-		log.Printf("ROUTING: /simple/%s/ → NOT_FOUND (neither local nor public)", packageName)
-		return "", "", nil, false, nil
 	}
 
 	// If found in cache, use cached content
@@ -182,35 +201,13 @@ func (p *Proxy) HandlePackage(w http.ResponseWriter, r *http.Request) {
 func (p *Proxy) HandleFile(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	// Extract file path from URL
-	// Expected formats: /packages/{file_path} or /{file_name}
-	pathParts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-
-	var filePath string
-	switch {
-	case len(pathParts) >= 2 && pathParts[0] == "packages":
-		// Handle /packages/{file_path} format
-		filePath = strings.Join(pathParts[1:], "/")
-		// Check if we have a valid file path (not just empty or trailing slash)
-		if filePath == "" {
-			http.Error(w, "Invalid file path", http.StatusBadRequest)
-			return
-		}
-	case len(pathParts) == 1:
-		// Handle direct file requests like /{file_name}
-		filePath = pathParts[0]
-		if filePath == "" || filePath == "packages" {
-			http.Error(w, "Invalid file path", http.StatusBadRequest)
-			return
-		}
-	default:
-		http.Error(w, "Invalid file path", http.StatusBadRequest)
+	filePath, err := p.extractFilePath(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	// Extract package name from file path to determine source
-	// File paths typically follow pattern: {package_name}-{version}-{...}
-	fileName := pathParts[len(pathParts)-1]
+	fileName := p.extractFileNameFromPath(r.URL.Path)
 	packageName := p.extractPackageNameFromFileName(fileName)
 
 	if packageName == "" {
@@ -225,25 +222,9 @@ func (p *Proxy) HandleFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Determine which index to serve from
-	var sourceIndex string
-	var fileBaseURL string
-
-	switch {
-	case privateExists:
-		// If package exists in private index, serve from there
-		sourceIndex = p.config.PrivatePyPIURL
-		fileBaseURL = strings.TrimSuffix(strings.TrimSuffix(p.config.PrivatePyPIURL, "/simple/"), "/simple")
-		log.Printf("FILE: /packages/%s → LOCAL_PYPI (%s)", filePath, sourceIndex)
-	case publicExists:
-		// If package only exists in public index, serve from there
-		sourceIndex = p.config.PublicPyPIURL
-		fileBaseURL = publicPyPIFileBaseURL
-		log.Printf("FILE: /packages/%s → PUBLIC_PYPI (%s)", filePath, sourceIndex)
-	default:
-		// Package doesn't exist in either index
-		log.Printf("FILE: /packages/%s → NOT_FOUND (neither local nor public)", filePath)
-		http.Error(w, "Package not found", http.StatusNotFound)
+	sourceIndex, fileBaseURL, err := p.determineFileSource(packageName, publicExists, privateExists)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
 
@@ -251,20 +232,10 @@ func (p *Proxy) HandleFile(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set(pypi.ResponseHeaderSource, sourceIndex)
 
 	// Construct the full file URL
-	var fileURL string
-	if strings.HasPrefix(r.URL.Path, "/packages/") {
-		// For /packages/ paths, use the original logic
-		fileURL = fileBaseURL + r.URL.Path
-		// Fix double slashes
-		fileURL = strings.Replace(fileURL, "//packages/", "/packages/", 1)
-	} else {
-		// For direct file requests, construct the URL properly
-		fileURL = fileBaseURL + "/" + filePath
-	}
+	fileURL := p.constructFileURL(fileBaseURL, r.URL.Path, filePath)
 
-	// Proxy the file from the determined source
-	err = p.client.ProxyFile(ctx, fileURL, w, r.Method)
-	if err != nil {
+	// Proxy the file
+	if err := p.client.ProxyFile(ctx, fileURL, w, r.Method); err != nil {
 		http.Error(w, fmt.Sprintf("Error proxying file: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -382,6 +353,75 @@ func (p *Proxy) extractPackageNameFromFileName(fileName string) string {
 	}
 
 	return ""
+}
+
+// extractFilePath extracts and validates the file path from the request.
+func (p *Proxy) extractFilePath(r *http.Request) (string, error) {
+	pathParts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+
+	switch {
+	case len(pathParts) >= 2 && pathParts[0] == packagesPath:
+		// Handle /packages/{file_path} format
+		filePath := strings.Join(pathParts[1:], "/")
+		// Check if we have a valid file path (not just empty or trailing slash)
+		if filePath == "" {
+			return "", fmt.Errorf("invalid file path")
+		}
+		return filePath, nil
+	case len(pathParts) == 1 && pathParts[0] != packagesPath:
+		// Handle direct file requests like /{file_name}
+		filePath := pathParts[0]
+		if filePath == "" || filePath == packagesPath {
+			return "", fmt.Errorf("invalid file path")
+		}
+		return filePath, nil
+	default:
+		return "", fmt.Errorf("invalid file path")
+	}
+}
+
+// extractFileNameFromPath extracts the file name from the URL path.
+func (p *Proxy) extractFileNameFromPath(path string) string {
+	pathParts := strings.Split(strings.Trim(path, "/"), "/")
+	if len(pathParts) == 0 {
+		return ""
+	}
+	return pathParts[len(pathParts)-1]
+}
+
+// determineFileSource determines which source to serve the file from.
+func (p *Proxy) determineFileSource(packageName string, publicExists, privateExists bool) (sourceIndex, fileBaseURL string, err error) {
+	// Check if this package should always use the public index
+	if p.config.IsPublicOnlyPackage(packageName) {
+		if publicExists {
+			return p.config.PublicPyPIURL, publicPyPIFileBaseURL, nil
+		}
+		return "", "", fmt.Errorf("package not found")
+	}
+
+	switch {
+	case privateExists:
+		// If package exists in private index, serve from there
+		return p.config.PrivatePyPIURL, strings.TrimSuffix(strings.TrimSuffix(p.config.PrivatePyPIURL, "/simple/"), "/simple"), nil
+	case publicExists:
+		// If package only exists in public index, serve from there
+		return p.config.PublicPyPIURL, publicPyPIFileBaseURL, nil
+	default:
+		// Package doesn't exist in either index
+		return "", "", fmt.Errorf("package not found")
+	}
+}
+
+// constructFileURL constructs the full file URL based on the request path.
+func (p *Proxy) constructFileURL(fileBaseURL, requestPath, filePath string) string {
+	if strings.HasPrefix(requestPath, "/"+packagesPath+"/") {
+		// For /packages/ paths, use the original logic
+		fileURL := fileBaseURL + requestPath
+		// Fix double slashes
+		return strings.Replace(fileURL, "//"+packagesPath+"/", "/"+packagesPath+"/", 1)
+	}
+	// For direct file requests, construct the URL properly
+	return fileBaseURL + "/" + filePath
 }
 
 // GetCache returns the cache instance for testing purposes.

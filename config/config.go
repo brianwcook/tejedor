@@ -9,23 +9,25 @@ import (
 
 // Config holds the application configuration.
 type Config struct {
-	PublicPyPIURL  string `mapstructure:"public_pypi_url"`
-	PrivatePyPIURL string `mapstructure:"private_pypi_url"`
-	Port           int    `mapstructure:"port"`
-	CacheEnabled   bool   `mapstructure:"cache_enabled"`
-	CacheSize      int    `mapstructure:"cache_size"`
-	CacheTTL       int    `mapstructure:"cache_ttl_hours"`
+	PublicPyPIURL      string   `mapstructure:"public_pypi_url"`
+	PrivatePyPIURL     string   `mapstructure:"private_pypi_url"`
+	Port               int      `mapstructure:"port"`
+	CacheEnabled       bool     `mapstructure:"cache_enabled"`
+	CacheSize          int      `mapstructure:"cache_size"`
+	CacheTTL           int      `mapstructure:"cache_ttl_hours"`
+	PublicOnlyPackages []string `mapstructure:"public_only_packages"`
 }
 
 // DefaultConfig returns the default configuration.
 func DefaultConfig() *Config {
 	return &Config{
-		PublicPyPIURL:  "https://pypi.org/simple/",
-		PrivatePyPIURL: "",
-		Port:           8080,
-		CacheEnabled:   true,
-		CacheSize:      20000,
-		CacheTTL:       12,
+		PublicPyPIURL:      "https://pypi.org/simple/",
+		PrivatePyPIURL:     "",
+		Port:               8080,
+		CacheEnabled:       true,
+		CacheSize:          20000,
+		CacheTTL:           12,
+		PublicOnlyPackages: []string{},
 	}
 }
 
@@ -61,6 +63,9 @@ func LoadConfig(configPath string) (*Config, error) {
 	}
 	if err := viper.BindEnv("cache_ttl_hours", "PYPI_PROXY_CACHE_TTL_HOURS"); err != nil {
 		return nil, fmt.Errorf("error binding cache_ttl_hours env var: %w", err)
+	}
+	if err := viper.BindEnv("public_only_packages", "PYPI_PROXY_PUBLIC_ONLY_PACKAGES"); err != nil {
+		return nil, fmt.Errorf("error binding public_only_packages env var: %w", err)
 	}
 
 	// If config file is specified, use it
@@ -99,6 +104,17 @@ func CreateDefaultConfigFile(path string) error {
 	viper.Set("cache_enabled", config.CacheEnabled)
 	viper.Set("cache_size", config.CacheSize)
 	viper.Set("cache_ttl_hours", config.CacheTTL)
+	viper.Set("public_only_packages", config.PublicOnlyPackages)
 
 	return viper.WriteConfigAs(path)
+}
+
+// IsPublicOnlyPackage checks if a package should always be served from the public index.
+func (c *Config) IsPublicOnlyPackage(packageName string) bool {
+	for _, pkg := range c.PublicOnlyPackages {
+		if pkg == packageName {
+			return true
+		}
+	}
+	return false
 }

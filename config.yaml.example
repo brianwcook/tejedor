@@ -1,0 +1,25 @@
+# Example configuration file for Tejedor PyPI Proxy
+# Copy this file to config.yaml and modify as needed
+
+# PyPI Index URLs
+public_pypi_url: "https://pypi.org/simple/"
+private_pypi_url: "https://your-private-pypi.com/simple/"
+
+# Server Configuration
+port: 8080
+
+# Cache Configuration
+cache_enabled: true
+cache_size: 20000
+cache_ttl_hours: 12
+
+# Public-Only Packages
+# Packages in this list will always be served from the public PyPI index,
+# even if they exist in your private index. This is useful for update
+# workflows where you want to check the public index for newer versions.
+public_only_packages:
+  - requests
+  - pydantic
+  - fastapi
+  - urllib3
+  - certifi
