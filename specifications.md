@@ -17,6 +17,7 @@ The PyPI Proxy is a Go application that implements a proxy server for the Python
    - **Public Only**: When a package exists only in public PyPI, serve from public index
    - **Both Indexes**: When a package exists in both indexes, serve from private index (priority)
    - **Private Only**: When a package exists only in private index, serve from private index
+   - **Public-Only Packages**: When a package is in the `public_only_packages` list, always serve from public index (even if it exists in private index)
    - **Not Found**: When a package doesn't exist in either index, return 404
 
 3. **Simple Repository API Compliance**
@@ -151,6 +152,10 @@ port: 8080
 cache_enabled: true
 cache_size: 20000
 cache_ttl_hours: 12
+public_only_packages:
+  - requests
+  - pydantic
+  - fastapi
 ```
 
 ### Environment Variables
@@ -163,6 +168,7 @@ cache_ttl_hours: 12
 | `PYPI_PROXY_CACHE_ENABLED` | Enable/disable cache | No |
 | `PYPI_PROXY_CACHE_SIZE` | Cache size | No |
 | `PYPI_PROXY_CACHE_TTL_HOURS` | Cache TTL | No |
+| `PYPI_PROXY_PUBLIC_ONLY_PACKAGES` | Comma-separated list of packages to always serve from public index | No |
 
 ### Default Values
 
@@ -171,6 +177,7 @@ cache_ttl_hours: 12
 - `cache_enabled`: `true`
 - `cache_size`: `20000`
 - `cache_ttl_hours`: `12`
+- `public_only_packages`: `[]` (empty list)
 
 ## Caching Specification
 
@@ -459,6 +466,19 @@ Package files are served from multiple paths:
     }
   }
   ```
+
+### 9. Public-Only Packages
+- **Purpose**: Configure specific packages to always be served from the public PyPI index
+- **Use Case**: Update workflows where you want to check the public index for newer versions
+- **Configuration**: Add package names to the `public_only_packages` list
+- **Behavior**:
+  - Packages in this list are always served from public index, regardless of private index availability
+  - If a public-only package doesn't exist in public index, returns 404 (even if it exists in private index)
+  - Case-sensitive matching for package names
+- **Implementation**:
+  - Checked in `determineSource()` method before normal routing logic
+  - Applied to both package pages and file requests
+  - Cached package existence is respected for performance
 
 ## License
 

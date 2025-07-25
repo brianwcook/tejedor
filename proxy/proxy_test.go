@@ -41,16 +41,37 @@ func (m *MockPyPIClient) PackageExists(_ context.Context, baseURL, packageName s
 	// Track the call
 	if strings.Contains(baseURL, "pypi.org") {
 		m.publicCalls[packageName]++
-		return m.publicExists[packageName], nil
+		exists, found := m.publicExists[packageName]
+		if !found {
+			return false, nil
+		}
+		return exists, nil
 	}
 	m.privateCalls[packageName]++
-	return m.privateExists[packageName], nil
+	exists, found := m.privateExists[packageName]
+	if !found {
+		return false, nil
+	}
+	return exists, nil
 }
 
-func (m *MockPyPIClient) GetPackagePage(_ context.Context, _, packageName string) ([]byte, error) {
+func (m *MockPyPIClient) GetPackagePage(_ context.Context, baseURL, packageName string) ([]byte, error) {
 	if m.shouldError {
 		return nil, fmt.Errorf("mock error")
 	}
+
+	// Check if package exists in the appropriate index
+	var exists bool
+	if strings.Contains(baseURL, "pypi.org") {
+		exists = m.publicExists[packageName]
+	} else {
+		exists = m.privateExists[packageName]
+	}
+
+	if !exists {
+		return nil, fmt.Errorf("package not found")
+	}
+
 	return []byte(fmt.Sprintf("<html><body>Package %s</body></html>", packageName)), nil
 }
 
@@ -857,6 +878,117 @@ func TestExtractPackageNameFromFileName(t *testing.T) {
 				t.Errorf("Expected %s, got %s", tc.expectedName, result)
 			}
 		})
+	}
+}
+
+// TestProxyPublicOnlyPackages tests that packages in the public_only_packages list are always served from the public index, even if they exist in the private index.
+func TestProxyPublicOnlyPackages(t *testing.T) {
+	// Create test configuration with public-only packages
+	cfg := &config.Config{
+		PublicPyPIURL:      "https://pypi.org/simple/",
+		PrivatePyPIURL:     "https://console.redhat.com/api/pulp-content/public-calunga/mypypi/simple",
+		Port:               8080,
+		CacheEnabled:       false,
+		CacheSize:          100,
+		CacheTTL:           1,
+		PublicOnlyPackages: []string{"requests", "pydantic"},
+	}
+
+	// Create proxy instance
+	proxyInstance, err := NewProxy(cfg)
+	if err != nil {
+		t.Fatalf("Failed to create proxy: %v", err)
+	}
+
+	// Replace the client with our mock
+	mockClient := NewMockPyPIClient()
+	proxyInstance.client = mockClient
+
+	// Set up mock to return that package exists in both indexes
+	mockClient.publicExists["requests"] = true
+	mockClient.privateExists["requests"] = true
+	mockClient.publicExists["pydantic"] = true
+	mockClient.privateExists["pydantic"] = true
+
+	// Test that requests package is served from public index
+	req, err := http.NewRequest("GET", "/simple/requests/", http.NoBody)
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+	rr := httptest.NewRecorder()
+	proxyInstance.HandlePackage(rr, req)
+
+	// Should return 200 and be served from public index
+	if rr.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", rr.Code)
+	}
+
+	// Check that the source header indicates public index
+	sourceHeader := rr.Header().Get("X-PyPI-Source")
+	if sourceHeader != "https://pypi.org/simple/" {
+		t.Errorf("Expected source header to be public PyPI URL, got %s", sourceHeader)
+	}
+
+	// Test that pydantic package is served from public index
+	req, err = http.NewRequest("GET", "/simple/pydantic/", http.NoBody)
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+	rr = httptest.NewRecorder()
+	proxyInstance.HandlePackage(rr, req)
+
+	// Should return 200 and be served from public index
+	if rr.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", rr.Code)
+	}
+
+	// Check that the source header indicates public index
+	sourceHeader = rr.Header().Get("X-PyPI-Source")
+	if sourceHeader != "https://pypi.org/simple/" {
+		t.Errorf("Expected source header to be public PyPI URL, got %s", sourceHeader)
+	}
+
+	// Test that a package not in the list is served from private index when it exists in both
+	mockClient.publicExists["flask"] = true
+	mockClient.privateExists["flask"] = true
+
+	req, err = http.NewRequest("GET", "/simple/flask/", http.NoBody)
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+	rr = httptest.NewRecorder()
+	proxyInstance.HandlePackage(rr, req)
+
+	// Should return 200 and be served from private index
+	if rr.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", rr.Code)
+	}
+
+	// Check that the source header indicates private index
+	sourceHeader = rr.Header().Get("X-PyPI-Source")
+	if sourceHeader != "https://console.redhat.com/api/pulp-content/public-calunga/mypypi/simple" {
+		t.Errorf("Expected source header to be private PyPI URL, got %s", sourceHeader)
+	}
+
+	// Test that a public-only package that doesn't exist in public index returns 404
+	// Clear the mock responses for this test
+	delete(mockClient.publicExists, "requests")
+	delete(mockClient.privateExists, "requests")
+	// Set up so it doesn't exist in public but exists in private
+	mockClient.publicExists["requests"] = false
+	mockClient.privateExists["requests"] = true
+
+	req, err = http.NewRequest("GET", "/simple/requests/", http.NoBody)
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+	rr = httptest.NewRecorder()
+	proxyInstance.HandlePackage(rr, req)
+
+	// Should return 404 since it doesn't exist in public index
+	if rr.Code != http.StatusNotFound {
+		t.Errorf("Expected status 404, got %d", rr.Code)
+		t.Logf("Response body: %s", rr.Body.String())
 	}
 }
 

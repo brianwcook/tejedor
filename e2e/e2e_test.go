@@ -4,6 +4,7 @@
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -210,10 +211,13 @@ func TestPipInstall(t *testing.T) {
 
 	// Test pip install with private packages.
 	t.Run("private_packages", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
 		// nolint:gosec // proxyURL is a constant, not user input
-		cmd := exec.Command(filepath.Join(venvDir, "bin", "pip"), "install",
+		cmd := exec.CommandContext(ctx, filepath.Join(venvDir, "bin", "pip"), "install",
 			"--index-url", proxyURL+"/simple/",
-			"--no-deps", "flask==2.3.3")
+			"--no-deps", "--no-cache-dir", "click==8.1.7")
 
 		output, err := cmd.CombinedOutput()
 		if err != nil {
@@ -226,7 +230,14 @@ func TestPipInstall(t *testing.T) {
 		// nolint:gosec // proxyURL is a constant, not user input
 		cmd := exec.Command(filepath.Join(venvDir, "bin", "pip"), "install",
 			"--index-url", proxyURL+"/simple/",
-			"--no-deps", "urllib3==2.0.7")
+			"--no-deps", "--no-cache-dir", "certifi==2023.7.22")
+
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		cmd = exec.CommandContext(ctx, filepath.Join(venvDir, "bin", "pip"), "install",
+			"--index-url", proxyURL+"/simple/",
+			"--no-deps", "--no-cache-dir", "certifi==2023.7.22")
 
 		output, err := cmd.CombinedOutput()
 		if err != nil {

@@ -33,35 +33,23 @@ SETUP_PID=$!
 
 # Wait for environment to be ready
 print_status "Waiting for environment to be ready..."
-sleep 30
-
-# Wait for PyPI server to be ready
-print_status "Waiting for PyPI server to be ready..."
-for i in {1..30}; do
-    if curl -f http://127.0.0.1:8098/simple/ >/dev/null 2>&1; then
-        print_status "PyPI server is ready"
+for i in {1..45}; do
+    if curl -4 -sf http://127.0.0.1:8099/simple/ >/dev/null 2>&1; then
+        print_status "Test environment is ready!"
         break
     fi
-    if [ $i -eq 30 ]; then
-        print_error "PyPI server failed to start"
+    if [ $i -eq 45 ]; then
+        print_error "Test environment failed to start within 90 seconds"
         exit 1
     fi
     sleep 2
 done
 
-# Wait for tejedor proxy to be ready
-print_status "Waiting for tejedor proxy to be ready..."
-for i in {1..30}; do
-    if curl -f http://127.0.0.1:8099/simple/ >/dev/null 2>&1; then
-        print_status "Tejedor proxy is ready"
-        break
-    fi
-    if [ $i -eq 30 ]; then
-        print_error "Tejedor proxy failed to start"
-        exit 1
-    fi
-    sleep 2
-done
+# Check if proxy is running
+if ! curl -4 -sf http://127.0.0.1:8099/simple/ >/dev/null; then
+    print_error "Proxy is not running"
+    exit 1
+fi
 
 print_status "Test environment is ready!"
 

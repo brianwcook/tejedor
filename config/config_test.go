@@ -316,3 +316,49 @@ cache_ttl_hours: also_not_a_number
 
 	viper.Reset()
 }
+
+func TestConfig_IsPublicOnlyPackage(t *testing.T) {
+	tests := []struct {
+		name        string
+		packages    []string
+		packageName string
+		expected    bool
+	}{
+		{
+			name:        "package in list",
+			packages:    []string{"requests", "pydantic", "fastapi"},
+			packageName: "requests",
+			expected:    true,
+		},
+		{
+			name:        "package not in list",
+			packages:    []string{"requests", "pydantic", "fastapi"},
+			packageName: "flask",
+			expected:    false,
+		},
+		{
+			name:        "empty list",
+			packages:    []string{},
+			packageName: "requests",
+			expected:    false,
+		},
+		{
+			name:        "case sensitive match",
+			packages:    []string{"Requests", "Pydantic"},
+			packageName: "requests",
+			expected:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := &Config{
+				PublicOnlyPackages: tt.packages,
+			}
+			result := config.IsPublicOnlyPackage(tt.packageName)
+			if result != tt.expected {
+				t.Errorf("IsPublicOnlyPackage() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}

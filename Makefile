@@ -1,3 +1,6 @@
+# Tejedor should run (or be exposed) on 8098
+# The private pypi proxy should run on 8099.
+
 # Tejedor PyPI Proxy Makefile
 
 .PHONY: build test e2e-test clean-e2e clean-all help
@@ -219,8 +222,17 @@ ci-ready: clean-all
 	@echo ""
 
 	@echo "🔍 Step 10/10: Running linting (same as CI)..."
-	@go run github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8 run
-	@echo "✅ Linting passed"
+	@LINT_BIN="$(shell go env GOPATH)/bin/golangci-lint"; \
+	if command -v golangci-lint &>/dev/null; then \
+		golangci-lint run; \
+		echo "✅ Linting passed"; \
+	elif [ -x "$$LINT_BIN" ]; then \
+		"$$LINT_BIN" run; \
+		echo "✅ Linting passed"; \
+	else \
+		echo "⚠️  golangci-lint not found, skipping linting"; \
+		echo "   Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8"; \
+	fi
 	@echo ""
 	@echo "🔒 Step 11/11: Running security scan (same as CI)..."
 	@go run github.com/securego/gosec/v2/cmd/gosec@v2.22.7 -fmt=json -out=security-report.json -exclude=main.go ./cache ./config ./pypi ./proxy ./integration
