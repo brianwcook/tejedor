@@ -6,6 +6,6 @@ COPY populate_packages.py /opt/pypi-server/populate_packages.py
 COPY populate-requirements.txt /opt/pypi-server/populate-requirements.txt
 COPY start.sh /opt/pypi-server/start.sh
 RUN chmod +x /opt/pypi-server/populate_packages.py /opt/pypi-server/start.sh
-EXPOSE 8080
+EXPOSE 8098
 WORKDIR /opt/pypi-server
 CMD ["./start.sh"]

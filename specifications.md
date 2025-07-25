@@ -41,6 +41,7 @@ The PyPI Proxy is a Go application that implements a proxy server for the Python
 6. **Configuration Management**
    - Must support YAML configuration files
    - Must support environment variables
+   - Must support command line flags
    - Must validate required configuration parameters
    - Must provide sensible defaults
 

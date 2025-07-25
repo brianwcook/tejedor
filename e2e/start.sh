@@ -8,5 +8,5 @@ echo "Downloading packages from public PyPI..."
 python3 populate_packages.py
 
 # Start PyPI server
-echo "Starting PyPI server on port 8080..."
-pypi-server run -p 8080 -i 0.0.0.0 packages
+echo "Starting PyPI server on port 8098..."
+pypi-server run -p 8098 -i 0.0.0.0 packages

@@ -80,7 +80,7 @@ $CONTAINER_ENGINE run -d --name tejedor-test-pypi -p 8098:8080 tejedor-test-pypi
 # Wait for PyPI server to be ready
 print_status "Waiting for PyPI server to be ready..."
 for i in {1..30}; do
-    if curl -f http://localhost:8098/simple/ >/dev/null 2>&1; then
+    if curl -f http://127.0.0.1:8098/simple/ >/dev/null 2>&1; then
         print_status "PyPI server is ready"
         break
     fi
@@ -104,7 +104,7 @@ cd e2e
 cat > config.json << EOF
 {
   "public_pypi_url": "https://pypi.org/simple/",
-  "private_pypi_url": "http://localhost:8098/simple/",
+  "private_pypi_url": "http://127.0.0.1:8098/simple/",
   "port": 8099,
   "cache_enabled": false,
   "cache_size": 100,
@@ -119,7 +119,7 @@ TEJEDOR_PID=$!
 # Wait for tejedor to be ready
 print_status "Waiting for tejedor proxy to be ready..."
 for i in {1..15}; do
-    if curl -f http://localhost:8099/simple/ >/dev/null 2>&1; then
+    if curl -f http://127.0.0.1:8099/simple/ >/dev/null 2>&1; then
         print_status "Tejedor proxy is ready"
         break
     fi
@@ -145,7 +145,7 @@ itsdangerous==2.1.2
 blinker==1.6.3
 EOF
 
-test-venv-private/bin/pip install -r requirements-private.txt -i http://localhost:8099/simple/
+test-venv-private/bin/pip install -r requirements-private.txt -i http://127.0.0.1:8099/simple/
 print_status "✅ Private packages installed successfully"
 
 # Test 2: Install packages from public PyPI only
@@ -161,7 +161,7 @@ charset-normalizer==3.2.0
 idna==3.4
 EOF
 
-test-venv-public/bin/pip install -r requirements-public.txt -i http://localhost:8099/simple/
+test-venv-public/bin/pip install -r requirements-public.txt -i http://127.0.0.1:8099/simple/
 print_status "✅ Public packages installed successfully"
 
 # Test 3: Install mixed packages
@@ -176,14 +176,14 @@ click==8.1.7
 six==1.16.0
 EOF
 
-test-venv-mixed/bin/pip install -r requirements-mixed.txt -i http://localhost:8099/simple/
+test-venv-mixed/bin/pip install -r requirements-mixed.txt -i http://127.0.0.1:8099/simple/
 print_status "✅ Mixed packages installed successfully"
 
 # Test 4: Verify filtering behavior
 print_status "Testing filtering behavior..."
 
 # Test that numpy (public only) returns source distributions only
-NUMPY_RESPONSE=$(curl -s http://localhost:8099/simple/numpy/)
+NUMPY_RESPONSE=$(curl -s http://127.0.0.1:8099/simple/numpy/)
 if echo "$NUMPY_RESPONSE" | grep -q "\.tar\.gz"; then
     print_status "✅ Numpy response contains source distributions"
 else
@@ -199,7 +199,7 @@ else
 fi
 
 # Test that flask (private) can have both source and wheel
-FLASK_RESPONSE=$(curl -s http://localhost:8099/simple/flask/)
+FLASK_RESPONSE=$(curl -s http://127.0.0.1:8099/simple/flask/)
 if echo "$FLASK_RESPONSE" | grep -q "flask"; then
     print_status "✅ Flask response contains flask package"
 else

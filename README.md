@@ -49,6 +49,42 @@ This project maintains high code quality standards with:
 - **Race Detection**: All tests run with `-race` flag to detect race conditions
 - **Security Scanning**: Uses `gosec` for security vulnerability detection
 
+## Hermeto Integration
+
+Tejedor integrates with Hermeto (Cachi2) through a Tekton task that provides PyPI proxy functionality for Python dependency prefetching.
+
+### Tekton Task: `prefetch-dependencies-tejedor`
+
+The task automatically detects Python pip dependencies and starts Tejedor as a sidecar container to proxy PyPI requests.
+
+**Features:**
+- Automatic Python dependency detection
+- Tejedor sidecar with configurable private PyPI URL
+- Optional proxy server support
+- Wheel download support for private packages
+- Source-only filtering for public packages
+
+**Usage:**
+```yaml
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: prefetch-dependencies-tejedor
+spec:
+  params:
+    - name: input
+      value: "pip"
+    - name: private-pypi-url
+      value: "https://your-private-pypi.com/simple/"
+    - name: proxy-server
+      value: "http://proxy.company.com:8080"  # optional
+```
+
+**Documentation:**
+- [Task Documentation](task/prefetch-dependencies-tejedor/0.2/README.md)
+- [Local Testing Guide](task/prefetch-dependencies-tejedor/0.2/LOCAL_TESTING.md)
+- [Test Example](task/prefetch-dependencies-tejedor/0.2/test-example.yaml)
+
 ## Quick Start
 
 ### Prerequisites
@@ -86,6 +122,23 @@ go build -o pypi-proxy
 ```
 
 The proxy will start on port 8080 by default.
+
+### Command Line Flags
+
+You can also configure the proxy using command line flags:
+
+```bash
+./pypi-proxy --private-pypi-url="https://your-private-pypi.com/simple/" --port=9090 --cache-enabled=false
+```
+
+Available flags:
+- `--private-pypi-url`: URL of the private PyPI server (required)
+- `--public-pypi-url`: URL of the public PyPI server (default: https://pypi.org/simple/)
+- `--port`: Port to listen on (default: 8080)
+- `--cache-enabled`: Enable caching (default: true)
+- `--cache-size`: Cache size in entries (default: 20000)
+- `--cache-ttl-hours`: Cache TTL in hours (default: 12)
+- `--config`: Path to configuration file
 
 ## Configuration
 
@@ -141,25 +194,25 @@ Options:
 
 Once running, the proxy exposes the Simple Repository API at the configured port:
 
-- **Package Index**: `http://localhost:8080/simple/`
-- **Package Page**: `http://localhost:8080/simple/{package_name}/`
-- **Package Files**: `http://localhost:8080/packages/{file_path}`
+- **Package Index**: `http://127.0.0.1:8080/simple/`
+- **Package Page**: `http://127.0.0.1:8080/simple/{package_name}/`
+- **Package Files**: `http://127.0.0.1:8080/packages/{file_path}`
 
 ### Example Usage
 
 1. **Install a package using pip**:
 ```bash
-pip install --index-url http://localhost:8080/simple/ pycups
+pip install --index-url http://127.0.0.1:8080/simple/ pycups
 ```
 
 2. **Install a package that exists in both indexes**:
 ```bash
-pip install --index-url http://localhost:8080/simple/ pydantic
+pip install --index-url http://127.0.0.1:8080/simple/ pydantic
 ```
 
 3. **Check which index served a package**:
 ```bash
-curl -I http://localhost:8080/simple/pycups/
+curl -I http://127.0.0.1:8080/simple/pycups/
 # Look for X-PyPI-Source header in response
 ```
 
@@ -290,7 +343,7 @@ Cache statistics are logged when the server starts.
 
 4. **File download errors (404 Not Found)**:
    ```
-   ERROR: HTTP error 404 while getting http://localhost:8080/package-version.whl
+   ERROR: HTTP error 404 while getting http://127.0.0.1:8080/package-version.whl
    ```
    Solution: This issue has been fixed in recent versions. The proxy now correctly handles direct file requests for wheel files and other package distributions. Make sure you're using the latest version of the proxy.
 

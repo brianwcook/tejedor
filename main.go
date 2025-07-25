@@ -15,13 +15,51 @@ import (
 
 func main() {
 	var configPath string
+	var privatePyPIURL string
+	var publicPyPIURL string
+	var port int
+	var cacheEnabled bool
+	var cacheSize int
+	var cacheTTL int
+
 	flag.StringVar(&configPath, "config", "", "Path to configuration file")
+	flag.StringVar(&privatePyPIURL, "private-pypi-url", "", "URL of the private PyPI server")
+	flag.StringVar(&publicPyPIURL, "public-pypi-url", "", "URL of the public PyPI server (default: https://pypi.org/simple/)")
+	flag.IntVar(&port, "port", 0, "Port to listen on (default: 8080)")
+	flag.BoolVar(&cacheEnabled, "cache-enabled", true, "Enable caching (default: true)")
+	flag.IntVar(&cacheSize, "cache-size", 0, "Cache size in entries (default: 20000)")
+	flag.IntVar(&cacheTTL, "cache-ttl-hours", 0, "Cache TTL in hours (default: 12)")
 	flag.Parse()
 
 	// Load configuration
 	cfg, err := config.LoadConfig(configPath)
 	if err != nil {
 		log.Fatalf("Error loading configuration: %v", err)
+	}
+
+	// Override config with CLI flags if provided
+	if privatePyPIURL != "" {
+		cfg.PrivatePyPIURL = privatePyPIURL
+	}
+	if publicPyPIURL != "" {
+		cfg.PublicPyPIURL = publicPyPIURL
+	}
+	if port != 0 {
+		cfg.Port = port
+	}
+	if !cacheEnabled {
+		cfg.CacheEnabled = false
+	}
+	if cacheSize != 0 {
+		cfg.CacheSize = cacheSize
+	}
+	if cacheTTL != 0 {
+		cfg.CacheTTL = cacheTTL
+	}
+
+	// Validate required fields
+	if cfg.PrivatePyPIURL == "" {
+		log.Fatal("private_pypi_url is required (set via config file, environment variable, or --private-pypi-url flag)")
 	}
 
 	// Create proxy instance
