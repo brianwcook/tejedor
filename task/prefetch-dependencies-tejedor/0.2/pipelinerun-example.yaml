@@ -1,0 +1,22 @@
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  name: test-prefetch-dependencies-tejedor-run
+spec:
+  pipelineRef:
+    name: test-prefetch-dependencies-tejedor
+  params:
+    - name: private-pypi-url
+      value: "https://private-pypi.company.com/simple/"
+    - name: proxy-server
+      value: "http://proxy.company.com:8080"
+  workspaces:
+    - name: source
+      persistentVolumeClaim:
+        claimName: source-pvc
+    - name: git-auth
+      secret:
+        secretName: git-credentials
+    - name: netrc
+      secret:
+        secretName: netrc-credentials 

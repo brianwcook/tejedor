@@ -1,0 +1,32 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: test-prefetch-dependencies-tejedor
+spec:
+  params:
+    - name: private-pypi-url
+      value: "https://private-pypi.company.com/simple/"
+    - name: proxy-server
+      value: "http://proxy.company.com:8080"
+  workspaces:
+    - name: source
+  tasks:
+    - name: prefetch-python-deps
+      taskRef:
+        name: prefetch-dependencies-tejedor
+      params:
+        - name: input
+          value: "pip"
+        - name: private-pypi-url
+          value: $(params.private-pypi-url)
+        - name: proxy-server
+          value: $(params.proxy-server)
+        - name: log-level
+          value: "debug"
+      workspaces:
+        - name: source
+          workspace: source
+        - name: git-basic-auth
+          workspace: git-auth
+        - name: netrc
+          workspace: netrc 
