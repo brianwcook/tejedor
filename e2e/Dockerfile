@@ -1,11 +1,24 @@
-FROM registry.access.redhat.com/ubi9/ubi
-RUN dnf update -y && dnf install -y python3 python3-pip git gcc python3-devel --allowerasing && dnf clean all
-RUN mkdir -p /opt/pypi-server/packages /opt/pypi-server/private
-RUN pip3 install pypiserver
-COPY populate_packages.py /opt/pypi-server/populate_packages.py
-COPY populate-requirements.txt /opt/pypi-server/populate-requirements.txt
-COPY start.sh /opt/pypi-server/start.sh
-RUN chmod +x /opt/pypi-server/populate_packages.py /opt/pypi-server/start.sh
+FROM pypiserver/pypiserver:latest
+
+# Install additional tools needed for package downloading
+RUN apk add --no-cache python3 py3-pip git
+
+# Create directories for packages
+RUN mkdir -p /packages
+
+# Copy the population script and requirements
+COPY populate_packages.py /populate_packages.py
+COPY populate-requirements.txt /populate-requirements.txt
+COPY start.sh /start.sh
+
+# Make scripts executable
+RUN chmod +x /populate_packages.py /start.sh
+
+# Expose the port that pypiserver runs on
 EXPOSE 8098
-WORKDIR /opt/pypi-server
-CMD ["./start.sh"]
+
+# Set the working directory
+WORKDIR /
+
+# Override the entrypoint to use our custom start script
+ENTRYPOINT ["/start.sh"]

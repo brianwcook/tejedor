@@ -3,9 +3,10 @@ import subprocess
 from pathlib import Path
 
 def download_package(package_spec):
-    packages_dir = Path("/opt/pypi-server/packages")
+    packages_dir = Path("/packages")
     packages_dir.mkdir(exist_ok=True)
     
+    # Use pip3 for Alpine Linux
     cmd = ["pip3", "download", "--no-deps", "--dest", str(packages_dir), package_spec]
     try:
         subprocess.run(cmd, check=True, capture_output=True)
@@ -26,7 +27,7 @@ def read_requirements_file(requirements_path):
     return packages
 
 def main():
-    requirements_file = Path("/opt/pypi-server/populate-requirements.txt")
+    requirements_file = Path("/populate-requirements.txt")
     
     if not requirements_file.exists():
         print(f"Error: Requirements file not found at {requirements_file}")
