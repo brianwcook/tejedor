@@ -33,25 +33,24 @@ test-e2e:
 # Shared cleanup function
 cleanup-test-env:
 	@echo "🧹 Comprehensive test environment cleanup..."
-	@echo "Stopping and removing test containers..."
-	@podman stop test-pypi-server tejedor-test-pypi tejedor-proxy 2>/dev/null || true
-	@podman rm -f test-pypi-server tejedor-test-pypi tejedor-proxy 2>/dev/null || true
-	@echo "Killing any tejedor processes..."
-	@pgrep -f "tejedor.*config\.json" | xargs -r kill -9 2>/dev/null || true
-	@pgrep -f "tejedor.*test-config\.yaml" | xargs -r kill -9 2>/dev/null || true
-	@pgrep -f "tejedor" | xargs -r kill -9 2>/dev/null || true
-	@echo "Cleaning up any kind clusters that might be using ports..."
-	@kind delete cluster --name tejedor-test 2>/dev/null || true
-	@echo "Cleaning up any kubectl resources..."
-	@kubectl delete pods --all --force --grace-period=0 2>/dev/null || true
-	@kubectl delete services --all --force --grace-period=0 2>/dev/null || true
-	@kubectl delete taskruns --all --force --grace-period=0 2>/dev/null || true
-	@kubectl delete tasks --all --force --grace-period=0 2>/dev/null || true
-	@echo "Killing any tejedor processes using test ports..."
-	@lsof -i:8098 -i:8099 -i:8080 | grep tejedor | awk '{print $$2}' | xargs -r kill -9 2>/dev/null || true
-	@echo "Waiting for ports to be released..."
-	@sleep 3
-	@echo "✅ Comprehensive cleanup complete"
+	@set -x; \
+	echo "Resource usage before cleanup:"; \
+	free -m || true; \
+	df -h || true; \
+	ps aux || true; \
+	echo "Stopping and removing test containers..."; \
+	(timeout 20 podman ps -aq | xargs -r podman stop || true); \
+	(timeout 20 podman ps -aq | xargs -r podman rm || true); \
+	echo "Killing any tejedor processes..."; \
+	(pkill -9 tejedor || true); \
+	(pkill -9 python-index-proxy || true); \
+	echo "Killing any processes holding test ports..."; \
+	(timeout 10 lsof -ti :8098 :8099 :8080 :8081 | xargs -r kill -9 || true); \
+	echo "Resource usage after cleanup:"; \
+	free -m || true; \
+	df -h || true; \
+	ps aux || true; \
+	echo "Cleanup complete."
 
 # Clean up any existing e2e test containers and processes
 clean-e2e: cleanup-test-env
