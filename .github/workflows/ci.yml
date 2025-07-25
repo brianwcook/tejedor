@@ -115,7 +115,7 @@ jobs:
 
     - name: Run Gosec Security Scanner
       run: |
-        go run github.com/securego/gosec/v2/cmd/gosec@v2.19.0 -fmt=json -out=security-report.json -exclude=main.go ./cache ./config ./pypi ./proxy ./integration
+        go run github.com/securego/gosec/v2/cmd/gosec@v2.22.7 -fmt=json -out=security-report.json -exclude=main.go ./cache ./config ./pypi ./proxy ./integration
       continue-on-error: true
 
     - name: Check for security issues
