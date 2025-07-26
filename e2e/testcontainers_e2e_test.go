@@ -13,7 +13,7 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-// TestContainerSetup holds the containers and their information for tests
+// TestContainerSetup holds the containers and their information for tests.
 type TestContainerSetup struct {
 	PrivatePyPI testcontainers.Container
 	Tejedor     testcontainers.Container
@@ -22,7 +22,7 @@ type TestContainerSetup struct {
 	Cleanup     func()
 }
 
-// setupTestContainers creates and starts the test containers
+// setupTestContainers creates and starts the test containers.
 func setupTestContainers(t *testing.T) *TestContainerSetup {
 	ctx := context.Background()
 
@@ -34,7 +34,7 @@ func setupTestContainers(t *testing.T) *TestContainerSetup {
 	// Start private PyPI container
 	privatePyPI, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
-			Image:        "tejedor-test-pypi:latest",
+			Image:        "localhost/tejedor-test-pypi:latest",
 			ExposedPorts: []string{"8098/tcp"},
 			WaitingFor:   wait.ForHTTP("/simple/").WithStartupTimeout(60 * time.Second),
 		},
@@ -56,7 +56,7 @@ func setupTestContainers(t *testing.T) *TestContainerSetup {
 	// Start tejedor container
 	tejedor, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
-			Image:        "tejedor:test",
+			Image:        "localhost/tejedor:test",
 			ExposedPorts: []string{"8081/tcp"},
 			Env: map[string]string{
 				"PYPI_PROXY_PRIVATE_PYPI_URL": privateURL,
@@ -104,7 +104,7 @@ func setupTestContainers(t *testing.T) *TestContainerSetup {
 	}
 }
 
-// TestPrivatePackages tests installing packages that only exist in private PyPI
+// TestPrivatePackages tests installing packages that only exist in private PyPI.
 func TestPrivatePackages(t *testing.T) {
 	setup := setupTestContainers(t)
 	defer setup.Cleanup()
@@ -138,7 +138,7 @@ func TestPrivatePackages(t *testing.T) {
 	}
 }
 
-// TestPublicPackages tests installing packages that only exist in public PyPI
+// TestPublicPackages tests installing packages that only exist in public PyPI.
 func TestPublicPackages(t *testing.T) {
 	setup := setupTestContainers(t)
 	defer setup.Cleanup()
@@ -172,7 +172,7 @@ func TestPublicPackages(t *testing.T) {
 	}
 }
 
-// TestWheelFileFiltering tests that wheel files are filtered from public PyPI
+// TestWheelFileFiltering tests that wheel files are filtered from public PyPI.
 func TestWheelFileFiltering(t *testing.T) {
 	setup := setupTestContainers(t)
 	defer setup.Cleanup()
@@ -218,7 +218,7 @@ func TestWheelFileFiltering(t *testing.T) {
 	}
 }
 
-// TestMixedPackages tests packages that exist in both indexes
+// TestMixedPackages tests packages that exist in both indexes.
 func TestMixedPackages(t *testing.T) {
 	setup := setupTestContainers(t)
 	defer setup.Cleanup()
@@ -254,7 +254,7 @@ func TestMixedPackages(t *testing.T) {
 	}
 }
 
-// TestPipInstall tests actual pip install through the proxy
+// TestPipInstall tests actual pip install through the proxy.
 func TestPipInstall(t *testing.T) {
 	setup := setupTestContainers(t)
 	defer setup.Cleanup()
@@ -289,7 +289,7 @@ func TestPipInstall(t *testing.T) {
 	}
 }
 
-// TestProxyHealth tests the health endpoint
+// TestProxyHealth tests the health endpoint.
 func TestProxyHealth(t *testing.T) {
 	setup := setupTestContainers(t)
 	defer setup.Cleanup()
@@ -325,7 +325,7 @@ func TestProxyHealth(t *testing.T) {
 	}
 }
 
-// TestProxyIndex tests the proxy index page
+// TestProxyIndex tests the proxy index page.
 func TestProxyIndex(t *testing.T) {
 	setup := setupTestContainers(t)
 	defer setup.Cleanup()
