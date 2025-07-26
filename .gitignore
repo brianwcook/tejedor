@@ -38,6 +38,7 @@ ehthumbs.db
 Thumbs.db 
 
 pypi-proxy
+python-index-proxy
 
 tejedor
 .pypi-proxy-linux-*
