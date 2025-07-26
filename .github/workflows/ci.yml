@@ -47,8 +47,8 @@ jobs:
 
     - name: Run e2e tests
       run: |
-        # Run the new Go-based e2e tests with container setup
-        make e2e-test-ci
+        # Run the new testcontainers-based e2e tests
+        make test-e2e-testcontainers
       timeout-minutes: 15
       env:
         # Allow Podman to run in CI
