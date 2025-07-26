@@ -29,14 +29,22 @@ func setupTestContainers(t *testing.T) *TestContainerSetup {
 	// Setup Podman environment
 	setupPodmanEnvironment(t)
 
+	// Debug: List available images
+	t.Log("Available images:")
+	// Note: We can't easily list images from testcontainers, but we can log what we're trying to use
+	t.Log("Attempting to use image: localhost/tejedor-test-pypi:latest")
+	t.Log("Attempting to use image: localhost/tejedor:test")
+
 	// For now, we'll use host networking since containers should be able to communicate via localhost
 
 	// Start private PyPI container
 	privatePyPI, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
-			Image:        "tejedor-test-pypi:latest",
+			Image:        "localhost/tejedor-test-pypi:latest",
 			ExposedPorts: []string{"8098/tcp"},
 			WaitingFor:   wait.ForHTTP("/simple/").WithStartupTimeout(60 * time.Second),
+			// Use host networking for better container communication
+			ExtraHosts: []string{"host.docker.internal:host-gateway"},
 		},
 		Started: true,
 	})
@@ -50,13 +58,13 @@ func setupTestContainers(t *testing.T) *TestContainerSetup {
 		t.Fatalf("Failed to get private PyPI port: %v", err)
 	}
 
-	// Use host.containers.internal for container-to-container communication
-	privateURL := fmt.Sprintf("http://host.containers.internal:%s/simple/", privatePort.Port())
+	// Use localhost for container-to-container communication since we're using host networking
+	privateURL := fmt.Sprintf("http://localhost:%s/simple/", privatePort.Port())
 
 	// Start tejedor container
 	tejedor, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
-			Image:        "tejedor:test",
+			Image:        "localhost/tejedor:test",
 			ExposedPorts: []string{"8081/tcp"},
 			Env: map[string]string{
 				"PYPI_PROXY_PRIVATE_PYPI_URL": privateURL,
@@ -65,6 +73,8 @@ func setupTestContainers(t *testing.T) *TestContainerSetup {
 				"PYPI_PROXY_CACHE_ENABLED":    "false",
 			},
 			WaitingFor: wait.ForHTTP("/health").WithStartupTimeout(60 * time.Second),
+			// Use host networking for better container communication
+			ExtraHosts: []string{"host.docker.internal:host-gateway"},
 		},
 		Started: true,
 	})
