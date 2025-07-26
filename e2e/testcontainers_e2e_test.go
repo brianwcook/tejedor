@@ -41,8 +41,8 @@ func setupTestContainers(t *testing.T) *TestContainerSetup {
 	privatePyPI, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
 			FromDockerfile: testcontainers.FromDockerfile{
-				Context:    "e2e/",
-				Dockerfile: "Dockerfile",
+				Context:    ".",
+				Dockerfile: "e2e/Dockerfile",
 			},
 			ExposedPorts: []string{"8098/tcp"},
 			WaitingFor:   wait.ForHTTP("/simple/").WithStartupTimeout(60 * time.Second),
