@@ -240,6 +240,35 @@ curl -I http://127.0.0.1:8080/simple/pycups/
 
 The application includes comprehensive testing with multiple test types:
 
+### Testcontainers Integration
+
+The project now uses [testcontainers-go](https://golang.testcontainers.org/) for end-to-end testing, providing:
+
+- **Automated Container Management**: Containers are automatically started and stopped for each test
+- **Podman Support**: Full compatibility with Podman container runtime
+- **Isolated Test Environment**: Each test gets its own clean container environment
+- **Automatic Cleanup**: Containers are automatically removed after tests complete
+- **Health Checks**: Tests wait for services to be ready before running
+
+#### Testcontainers Benefits
+
+1. **Simplified Testing**: No more complex shell scripts or Docker Compose dependencies
+2. **Better Isolation**: Each test runs in its own container environment
+3. **Improved CI/CD**: More reliable and portable test execution
+4. **Developer Experience**: Cleaner, more maintainable test code
+
+#### Running Testcontainers Tests
+
+```bash
+# Build test images and run testcontainers tests
+make test-e2e-testcontainers
+
+# Or manually build images and run tests
+podman build -t tejedor:test -f e2e/Dockerfile.tejedor .
+podman build -t tejedor-test-pypi:latest -f e2e/Dockerfile .
+go test -v ./e2e -run Test.*Testcontainers
+```
+
 ### Unit Tests
 - **Cache Tests**: Test cache functionality including creation, operations, expiration, and statistics
 - **Config Tests**: Test configuration management, environment variables, and file loading
@@ -279,6 +308,9 @@ go test ./integration/...
 
 # Run tests with race detection
 go test -race ./...
+
+# Run testcontainers-based e2e tests
+make test-e2e-testcontainers
 ```
 
 ## Development

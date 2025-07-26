@@ -33,6 +33,11 @@ test-e2e:
 	@echo "Running e2e tests..."
 	go test -tags=e2e ./e2e
 
+# Run testcontainers-based e2e tests
+test-e2e-testcontainers:
+	@echo "Running testcontainers-based e2e tests..."
+	go test -v ./e2e -run "Test.*" -timeout 10m
+
 # Shared cleanup function
 cleanup-test-env:
 	@echo "🧹 Comprehensive test environment cleanup..."
@@ -313,6 +318,7 @@ help:
 	@echo "  security   - Run security scan (using tools/go.mod)"
 	@echo "  e2e-test   - Run end-to-end tests (leaves environment running)"
 	@echo "  e2e-test-ci - Run end-to-end tests in CI (with cleanup)"
+	@echo "  test-e2e-testcontainers - Run testcontainers-based e2e tests"
 	@echo "  kind-hermeto-test-simple - Run simple Kind + Hermeto integration tests"
 	@echo "  kind-hermeto-test-full   - Run full Kind + Hermeto + Tejedor integration tests"
 	@echo "  ci-ready   - Run ALL CI checks locally (includes Kind tests, tools, tests, builds, lint, security)"
