@@ -54,9 +54,6 @@ jobs:
         podman build -t tejedor-test-pypi:latest -f e2e/Dockerfile e2e/
         echo "Listing built images..."
         podman images | grep -E "(tejedor|test-pypi)"
-        echo "Tagging images for testcontainers..."
-        podman tag localhost/tejedor:test tejedor:test
-        podman tag localhost/tejedor-test-pypi:latest tejedor-test-pypi:latest
       env:
         # Allow Podman to run in CI
         PODMAN_BUILDKIT: 1
