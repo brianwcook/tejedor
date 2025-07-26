@@ -34,7 +34,7 @@ func setupTestContainers(t *testing.T) *TestContainerSetup {
 	// Start private PyPI container
 	privatePyPI, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
-			Image:        "localhost/tejedor-test-pypi:latest",
+			Image:        "tejedor-test-pypi:latest",
 			ExposedPorts: []string{"8098/tcp"},
 			WaitingFor:   wait.ForHTTP("/simple/").WithStartupTimeout(60 * time.Second),
 		},
@@ -56,7 +56,7 @@ func setupTestContainers(t *testing.T) *TestContainerSetup {
 	// Start tejedor container
 	tejedor, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
-			Image:        "localhost/tejedor:test",
+			Image:        "tejedor:test",
 			ExposedPorts: []string{"8081/tcp"},
 			Env: map[string]string{
 				"PYPI_PROXY_PRIVATE_PYPI_URL": privateURL,
