@@ -32,15 +32,15 @@ func setupTestContainers(t *testing.T) *TestContainerSetup {
 	// Debug: List available images
 	t.Log("Available images:")
 	// Note: We can't easily list images from testcontainers, but we can log what we're trying to use
-	t.Log("Attempting to use pre-built image: localhost/tejedor-test-pypi:latest")
-	t.Log("Attempting to use pre-built image: localhost/tejedor:test")
+	t.Log("Attempting to use pre-built image: tejedor-test-pypi:latest")
+	t.Log("Attempting to use pre-built image: tejedor:test")
 
 	// For now, we'll use host networking since containers should be able to communicate via localhost
 
 	// Start private PyPI container using pre-built image
 	privatePyPI, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
-			Image:        "localhost/tejedor-test-pypi:latest",
+			Image:        "tejedor-test-pypi:latest",
 			ExposedPorts: []string{"8098/tcp"},
 			WaitingFor:   wait.ForHTTP("/simple/").WithStartupTimeout(60 * time.Second),
 			// Use host networking for better container communication
@@ -64,7 +64,7 @@ func setupTestContainers(t *testing.T) *TestContainerSetup {
 	// Start tejedor container using pre-built image
 	tejedor, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
-			Image:        "localhost/tejedor:test",
+			Image:        "tejedor:test",
 			ExposedPorts: []string{"8081/tcp"},
 			Env: map[string]string{
 				"PYPI_PROXY_PRIVATE_PYPI_URL": privateURL,
