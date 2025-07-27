@@ -32,15 +32,18 @@ func setupTestContainers(t *testing.T) *TestContainerSetup {
 	// Debug: List available images
 	t.Log("Available images:")
 	// Note: We can't easily list images from testcontainers, but we can log what we're trying to use
-	t.Log("Attempting to use pre-built image: localhost/tejedor-test-pypi:latest")
-	t.Log("Attempting to use pre-built image: localhost/tejedor:test")
+	t.Log("Attempting to build image from Dockerfile: e2e/Dockerfile")
+	t.Log("Attempting to build image from Dockerfile: e2e/Dockerfile.tejedor")
 
 	// For now, we'll use host networking since containers should be able to communicate via localhost
 
-	// Start private PyPI container using pre-built image
+	// Start private PyPI container using FromDockerfile
 	privatePyPI, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
-			Image:        "localhost/tejedor-test-pypi:latest",
+			FromDockerfile: testcontainers.FromDockerfile{
+				Context:    ".",
+				Dockerfile: "e2e/Dockerfile",
+			},
 			ExposedPorts: []string{"8098/tcp"},
 			WaitingFor:   wait.ForHTTP("/simple/").WithStartupTimeout(60 * time.Second),
 			// Use host networking for better container communication
@@ -61,10 +64,13 @@ func setupTestContainers(t *testing.T) *TestContainerSetup {
 	// Use localhost for container-to-container communication since we're using host networking
 	privateURL := fmt.Sprintf("http://localhost:%s/simple/", privatePort.Port())
 
-	// Start tejedor container using pre-built image
+	// Start tejedor container using FromDockerfile
 	tejedor, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
-			Image:        "localhost/tejedor:test",
+			FromDockerfile: testcontainers.FromDockerfile{
+				Context:    ".",
+				Dockerfile: "e2e/Dockerfile.tejedor",
+			},
 			ExposedPorts: []string{"8081/tcp"},
 			Env: map[string]string{
 				"PYPI_PROXY_PRIVATE_PYPI_URL": privateURL,
