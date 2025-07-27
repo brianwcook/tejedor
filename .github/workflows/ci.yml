@@ -47,13 +47,13 @@ jobs:
 
     - name: Build test images
       run: |
-        # Build the required test images for testcontainers
-        echo "Building tejedor:test image..."
-        podman build -t tejedor:test -f e2e/Dockerfile.tejedor .
-        echo "Building tejedor-test-pypi:latest image..."
-        podman build -t tejedor-test-pypi:latest -f e2e/Dockerfile e2e/
-        echo "Listing built images..."
-        podman images | grep -E "(tejedor|test-pypi)"
+            # Build the required test images for testcontainers
+            echo "Building tejedor:test image..."
+            PODMAN_BUILDKIT=1 podman build -t tejedor:test -f e2e/Dockerfile.tejedor .
+            echo "Building tejedor-test-pypi:latest image..."
+            PODMAN_BUILDKIT=1 podman build -t tejedor-test-pypi:latest -f e2e/Dockerfile e2e/
+            echo "Listing built images..."
+            podman images | grep -E "(tejedor|test-pypi)"
       env:
         # Allow Podman to run in CI
         PODMAN_BUILDKIT: 1
