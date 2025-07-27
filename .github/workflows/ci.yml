@@ -45,10 +45,26 @@ jobs:
         podman --version
         python3 --version
 
+    - name: Build test images
+      run: |
+            # Build the required test images for testcontainers
+            echo "Building tejedor:test image..."
+            podman build -t tejedor:test -f e2e/Dockerfile.tejedor .
+            echo "Building tejedorpypi:latest image..."
+            podman build -t tejedorpypi:latest -f e2e/Dockerfile e2e/
+            echo "Listing built images..."
+            podman images | grep -E "(tejedor|pypi)"
+      env:
+        # Allow Podman to run in CI
+        PODMAN_BUILDKIT: 1
+
     - name: Run e2e tests
       run: |
-        # Run the new Go-based e2e tests with container setup
-        make e2e-test-ci
+        # Run the new testcontainers-based e2e tests
+        echo "Checking available images..."
+        podman images
+        echo "Running testcontainers tests..."
+        make test-e2e-testcontainers
       timeout-minutes: 15
       env:
         # Allow Podman to run in CI

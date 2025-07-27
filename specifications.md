@@ -215,6 +215,37 @@ type PackageInfo struct {
 
 The application implements a comprehensive testing strategy with multiple test types:
 
+#### Testcontainers Integration
+
+The project uses [testcontainers-go](https://golang.testcontainers.org/) for end-to-end testing, providing:
+
+- **Automated Container Management**: Containers are automatically started and stopped for each test
+- **Podman Support**: Full compatibility with Podman container runtime  
+- **Isolated Test Environment**: Each test gets its own clean container environment
+- **Automatic Cleanup**: Containers are automatically removed after tests complete
+- **Health Checks**: Tests wait for services to be ready before running
+
+#### Testcontainers Implementation
+
+```go
+// Example testcontainers test structure
+func TestPrivatePackages(t *testing.T) {
+    setup := setupTestContainers(t)
+    defer setup.Cleanup()
+    
+    // Test logic here
+    resp, err := http.Get(fmt.Sprintf("%s/simple/%s/", setup.TejedorURL, pkg))
+    // ... assertions
+}
+```
+
+#### Testcontainers Benefits
+
+1. **Simplified Testing**: Eliminates complex shell scripts and Docker Compose dependencies
+2. **Better Isolation**: Each test runs in its own container environment
+3. **Improved CI/CD**: More reliable and portable test execution
+4. **Developer Experience**: Cleaner, more maintainable test code
+
 #### Unit Tests
 - **Cache Tests** (`cache/cache_test.go`): Test cache functionality including creation, operations, expiration, statistics, and HTML page caching
 - **Config Tests** (`config/config_test.go`): Test configuration management, environment variables, file loading, and validation

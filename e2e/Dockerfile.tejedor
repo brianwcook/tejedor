@@ -1,4 +1,4 @@
-FROM golang:1.21-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
 
@@ -24,16 +24,6 @@ WORKDIR /root/
 # Copy the binary from builder stage
 COPY --from=builder /app/tejedor .
 
-# Create config file
-RUN echo '{\
-  "public_pypi_url": "https://pypi.org/simple/",\
-  "private_pypi_url": "http://test-pypi:8080/simple/",\
-  "port": 8081,\
-  "cache_enabled": false,\
-  "cache_size": 100,\
-  "cache_ttl": 1\
-}' > config.json
-
 EXPOSE 8081
 
-CMD ["./tejedor", "-config", "config.json"] 
+CMD ["./tejedor"] 
