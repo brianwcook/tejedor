@@ -18,9 +18,14 @@ func setupPodmanEnvironment(t *testing.T) {
 	// Configure Testcontainers to not treat localhost as a registry
 	os.Setenv("TESTCONTAINERS_DOCKER_REGISTRY", "")
 
+	// Additional configuration for local image resolution
+	os.Setenv("TESTCONTAINERS_DOCKER_IMAGE_PULL_POLICY", "IfNotPresent")
+	os.Setenv("TESTCONTAINERS_DOCKER_IMAGE_PULL_TIMEOUT", "60")
+
 	t.Log("Configured testcontainers to use Podman")
 	t.Log("TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE:", os.Getenv("TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE"))
 	t.Log("TESTCONTAINERS_DOCKER_HOST:", os.Getenv("TESTCONTAINERS_DOCKER_HOST"))
 	t.Log("DOCKER_HOST:", os.Getenv("DOCKER_HOST"))
 	t.Log("TESTCONTAINERS_DOCKER_REGISTRY:", os.Getenv("TESTCONTAINERS_DOCKER_REGISTRY"))
+	t.Log("TESTCONTAINERS_DOCKER_IMAGE_PULL_POLICY:", os.Getenv("TESTCONTAINERS_DOCKER_IMAGE_PULL_POLICY"))
 }
